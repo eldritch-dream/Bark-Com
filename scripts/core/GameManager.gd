@@ -408,6 +408,10 @@ func complete_mission(
 	_process_mission_bonds(surviving_corgis_data)
 
 	missions_completed += 1
+	
+	# Force Refresh of Missions (New Day/Cycle)
+	_generate_daily_batch()
+
 	# save_game() # MOVED TO END to ensure roster purge is captured!
 
 	# Purge Dead from Roster
