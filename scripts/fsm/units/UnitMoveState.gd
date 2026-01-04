@@ -68,13 +68,21 @@ func _start_movement():
 			active_tween.tween_property(unit, "position", mid_point, 0.15)
 			active_tween.tween_property(unit, "position", world_target, 0.15)
 
-			if world_target != unit.position:
+			# Fix: Only look_at if we are moving horizontally. 
+			# If pure vertical (Ladder), look_at(self) fails.
+			var flat_pos = Vector3(unit.position.x, 0, unit.position.z)
+			var flat_target = Vector3(world_target.x, 0, world_target.z)
+			if flat_pos.distance_squared_to(flat_target) > 0.01:
 				unit.look_at(Vector3(world_target.x, unit.position.y, world_target.z), Vector3.UP)
+
 		else:
 			# Standard Move
 			# Rotate towards target
-			if world_target != unit.position:
+			var flat_pos = Vector3(unit.position.x, 0, unit.position.z)
+			var flat_target = Vector3(world_target.x, 0, world_target.z)
+			if flat_pos.distance_squared_to(flat_target) > 0.01:
 				unit.look_at(Vector3(world_target.x, unit.position.y, world_target.z), Vector3.UP)
+
 
 			# Move
 			active_tween.tween_property(unit, "position", world_target, 0.25)

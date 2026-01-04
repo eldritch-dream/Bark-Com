@@ -584,8 +584,15 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 	# _spawn_enemies_point_buy(grid_manager, mission)
 
 	# Mission Setup (Terminals)
+	# Legacy spawning removed. Now we wire up terminals spawned by MissionManager.
 	if mission and mission.objective_type == ObjectiveManager.MissionType.HACKER:
-		_spawn_terminals(grid_manager)
+		# Wait for MissionManager to finish spawning (it happens in start_mission?)
+		# Actually, MissionManager.start_mission is called... where?
+		# It seems Main.gd assumes MissionManager has populated the grid.
+		pass
+		
+
+
 
 	# Turn Manager Setup
 	turn_manager = TurnManager.new()
@@ -760,11 +767,24 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 			dummy_wave.wave_message = "Lootapalooza: 1 Guard Dog Detected!"
 			config.waves.append(dummy_wave)
 		
+		# 3. Refresh Grid with Player Positions so Enemies don't spawn on top of them!
+		grid_manager.refresh_pathfinding(spawned_units)
+
 		print("Main: Starting MissionManager with Config -> Type: ", config.objective_type, " Count: ", config.objective_target_count)
 		mission_manager.start_mission(config, grid_manager)
+
 		mission_manager.register_player_units(spawned_units) # Essential for Signal connections!
 			
 		all_units.append_array(mission_manager.spawned_units)  # Enemies
+
+		# WIRE UP TERMINALS (Moved here to ensure they exist!)
+		if config.objective_type == ObjectiveManager.MissionType.HACKER:
+			# Yield a frame to wait for spawn completion? MissionManager is sync usually.
+			var terminals = get_tree().get_nodes_in_group("Terminals")
+			print("Main: Wiring up ", terminals.size(), " Terminals (Post-Spawn).")
+			for term in terminals:
+				if not term.hack_complete.is_connected(_on_terminal_hack_complete):
+					term.connect("hack_complete", func(s): _on_terminal_hack_complete(s, term.grid_pos))
 
 	# Interactive props were already added to all_units in spawning block above (lines 418/432)
 
@@ -961,24 +981,56 @@ func _on_terminal_hack_complete(success: bool, pos: Vector2):
 		om.register_hack(success)
 
 	if success:
-		# Spawn 2 Rushers
-		spawn_reinforcement("Rusher", pos + Vector2(2, 2))
-		spawn_reinforcement("Rusher", pos + Vector2(-2, -2))
+		print("Main: Terminal Hacked at ", pos)
+		# Spawn 2 "Security Drone" Reinforcements
+		var rusher_data = load("res://scripts/resources/EnemyData.gd").new()
+		rusher_data.display_name = "Security Drone"
+		rusher_data.ai_behavior = rusher_data.AIBehavior.RUSHER
+		rusher_data.max_hp = 4
+		rusher_data.mobility = 4
+		rusher_data.visual_color = Color.ORANGE
 
-		# Reveal Map (Bonus)
-		if vision_manager:
-			# Temporarily boost all units vision? Or just reveal fog manually?
-			# FogManager has default reveal?
-			# Let's just rely on visual callback for now. The plan said "Reveals all enemies".
-			# We can iterate enemies and make them 'seen'.
-			if turn_manager:
-				for u in turn_manager.units:
-					if is_instance_valid(u) and "faction" in u and u.faction == "Enemy":
-						# Cheat reveal? Or just ping them?
-						SignalBus.on_request_floating_text.emit(u.position, "DETECTED", Color.RED)
+		for i in range(2): 
+			var spawn_pos = Vector2(-1, -1)
+			# Spiral search around terminal
+			for attempts in range(30):
+				var offset = Vector2(randi_range(-3, 3), randi_range(-3, 3))
+				var candidate = pos + offset
+				if offset == Vector2.ZERO: continue # Don't spawn on terminal
+
+				if grid_manager.is_walkable(candidate):
+
+					# Check dynamic occupancy
+					var occupied = false
+					for u in spawned_units:
+						if is_instance_valid(u) and u.grid_pos == candidate and u.current_hp > 0:
+							occupied = true
+							break
+					if not occupied:
+						spawn_pos = candidate
+						break
+			
+			if spawn_pos != Vector2(-1, -1):
+				var enemy = load("res://scripts/entities/EnemyUnit.gd").new()
+				add_child(enemy)
+				enemy.initialize_from_data(rusher_data)
+				enemy.initialize(spawn_pos)
+				enemy.position = grid_manager.get_world_position(spawn_pos)
+				spawned_units.append(enemy)
+				
+				# Ensure TurnManager knows about it
+				if turn_manager and not turn_manager.units.has(enemy):
+					turn_manager.units.append(enemy)
+				
+				print("Main: Security Drone dispatched to ", spawn_pos)
+				SignalBus.on_request_floating_text.emit(enemy.position, "ALERT!", Color.RED)
+
 	else:
-		# Spawn 1 Rusher
-		spawn_reinforcement("Rusher", pos + Vector2(0, 3))
+		print("Main: Terminal Hack Failed at ", pos)
+		# Punishment? Logic says 1 Rusher? 
+		# If user didn't ask for punishment fix, I'll leave it empty or add simple punishment.
+		spawn_reinforcement("Rusher", pos + Vector2(0, 3)) # Keeping legacy fallback for fail case
+
 
 
 func spawn_reinforcement(type: String, near_grid_pos: Vector2):

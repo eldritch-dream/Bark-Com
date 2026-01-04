@@ -204,8 +204,9 @@ func _spawn_objectives(type: int, count: int):
 						for x in range(center.x - r, center.x + r + 1):
 							for y in range(center.y - r, center.y + r + 1):
 								var p = Vector2(x, y)
-								if not grid_manager.is_valid_pos(p):
+								if not grid_manager.grid_data.has(p):
 									continue
+
 								
 								# Distance heuristic (Manhattan from center) = max(abs(dx), abs(dy))
 								# But just check walkability + reachability
@@ -605,6 +606,11 @@ func _spawn_enemy(type_name: String):
 
 	enemy.position = grid_manager.get_world_position(spawn_pos)
 	enemy.grid_pos = spawn_pos
+	
+	# Register in Grid immediately to prevent stacking!
+	if grid_manager.grid_data.has(spawn_pos):
+		grid_manager.grid_data[spawn_pos]["unit"] = enemy
+
 
 	# Default Visibility: Hidden (VisionManager will reveal if seen)
 	enemy.visible = false

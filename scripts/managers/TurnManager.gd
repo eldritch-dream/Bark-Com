@@ -164,8 +164,10 @@ func end_player_turn():
 
 
 func start_enemy_turn():
-	if game_over:
+	if game_over or current_turn == TurnState.ENEMY_TURN:
+		print("TurnManager: start_enemy_turn blocked (Game Over or Already Active).")
 		return
+
 	current_turn = TurnState.ENEMY_TURN
 	
 	# Wait for any death cleanups (e.g. from Barrels) to resolve
@@ -220,7 +222,9 @@ func start_enemy_turn():
 					# Wait for pan + moment of recognition
 					await get_tree().create_timer(1.5).timeout
 
-				print("TM: Awaiting action for ", unit.name)
+				print("TM [", get_instance_id(), "]: Awaiting action for ", unit.name, " (", unit.get_instance_id(), ")")
+
+
 				unit.decide_action(units, gm)
 				
 				if unit.has_signal("action_complete"):
