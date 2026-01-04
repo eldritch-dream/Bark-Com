@@ -273,21 +273,27 @@ func update_tile_state(
 
 
 func refresh_pathfinding(units: Array, ignore_unit = null):
-	# 1. Reset to Base Static State
+	# 1. Reset to Base Static State + Check Dynamic Obstacles (Props/Crates)
 	for coord in grid_data:
 		var d = grid_data[coord]
 		var walkable = d.get("is_walkable", false)
+		
+		# Check if occupied by a prop or unit registered in grid_data
+		var occupant = d.get("unit")
+		if occupant and is_instance_valid(occupant) and occupant != ignore_unit:
+			walkable = false
+
 		var id = _get_point_id(coord)
 		if astar.has_point(id):
 			astar.set_point_disabled(id, not walkable)
 
-	# 2. Mark Units as Obstacles
+	# 2. Mark Units from List (Redundant but safe for moving units)
 	for u in units:
 		if is_instance_valid(u) and u.current_hp > 0 and u != ignore_unit:
-			# Ensure we don't block the ignore_unit (active mover)
 			var u_id = _get_point_id(u.grid_pos)
 			if astar.has_point(u_id):
 				astar.set_point_disabled(u_id, true)
+
 
 
 func get_random_valid_position() -> Vector2:
@@ -321,7 +327,11 @@ func get_reachable_tiles(start_pos: Vector2, max_move: int) -> Array[Vector2]:
 			
 		var connections = astar.get_point_connections(c_id)
 		for n_id in connections:
+			if astar.is_point_disabled(n_id):
+				continue
+				
 			var n_pos = get_grid_coord(astar.get_point_position(n_id))
+
 			
 			# Calculate Cost to neighbor
 			var move_cost = 1

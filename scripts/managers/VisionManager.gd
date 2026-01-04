@@ -70,10 +70,17 @@ func update_vision(all_units: Array):
 		if is_instance_valid(prop) and "grid_pos" in prop:
 			# STRICT VISION: Only show if currently in visible_tiles OR explored
 			# User request: "remain visible (but with fog vfx applied) after being seen"
+			# STRICT VISION: Only show if currently in visible_tiles OR explored
+			# FIX: Also toggle collision so hidden props don't block clicks
+			var collider = p if p is CollisionObject3D else null
+			
 			if visible_tiles.has(prop.grid_pos) or explored_tiles.has(prop.grid_pos):
 				prop.visible = true
+				if collider: collider.collision_layer = 1
 			else:
 				prop.visible = false
+				if collider: collider.collision_layer = 2 # Move to Layer 2 (Hidden)
+
 
 
 func _process_unit_vision(unit):

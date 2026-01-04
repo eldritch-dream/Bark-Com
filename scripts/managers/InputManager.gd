@@ -2,6 +2,7 @@ extends Node
 
 # Signals
 signal on_tile_clicked(grid_pos: Vector2, button_index: int)  # 1=Left, 2=Right
+signal on_mouse_hover(grid_pos: Vector2) # For Safe Move Preview
 signal on_camera_pan(direction: Vector2)
 signal on_camera_zoom(amount: float)
 signal on_rotation_request(direction: int)  # -1 Left, 1 Right
@@ -51,6 +52,8 @@ func _unhandled_input(event):
 	# 3. Mouse Interaction (Raycasts)
 	if event is InputEventMouseButton and event.pressed:
 		_handle_mouse_click(event)
+	elif event is InputEventMouseMotion:
+		_handle_mouse_hover(event)
 
 	if event.is_action_pressed("ui_cancel"):  # Escape / Right click sometimes maps here
 		on_cancel_command.emit()
@@ -164,20 +167,39 @@ func _handle_mouse_click(event: InputEventMouseButton):
 	# 5. Debug Keys (Moved to unhandled_input)
 
 	if result:
-		# Hit something
-		# Calculate Grid Pos
-		# GRID_CORRECTION: GridManager uses TILE_SIZE = 2.0.
-		# InputManager must match this to emit correct grid coordinates.
-		# ideally this is injected, but for now we sync the constant.
-		var tile_size = 2.0
-
-		var hit_pos = result.position
-		var grid_x = round(hit_pos.x / tile_size)
-		var grid_z = round(hit_pos.z / tile_size)
-		var grid_pos = Vector2(grid_x, grid_z)
-
+		var grid_pos = _result_to_grid(result.position)
 		on_tile_clicked.emit(grid_pos, event.button_index)
 
 		# Also emit Cancel for Right Click?
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			on_cancel_command.emit()
+
+
+func _handle_mouse_hover(event: InputEventMouseMotion):
+	var result = _raycast_from_mouse(event.position)
+	if result:
+		var grid_pos = _result_to_grid(result.position)
+		on_mouse_hover.emit(grid_pos)
+
+
+func _raycast_from_mouse(screen_pos: Vector2):
+	var camera = get_viewport().get_camera_3d()
+	if not camera:
+		return null
+		
+	var from = camera.project_ray_origin(screen_pos)
+	var dir = camera.project_ray_normal(screen_pos)
+	
+	var query = PhysicsRayQueryParameters3D.create(from, from + dir * RAY_LENGTH)
+	# query.collision_mask = 1 # Default (Visible) - Hidden props (Layer 2) are ignored!
+	
+	var space = camera.get_world_3d().direct_space_state
+	return space.intersect_ray(query)
+
+
+func _result_to_grid(hit_pos: Vector3) -> Vector2:
+	var tile_size = 2.0
+	var grid_x = round(hit_pos.x / tile_size)
+	var grid_z = round(hit_pos.z / tile_size)
+	return Vector2(grid_x, grid_z)
+

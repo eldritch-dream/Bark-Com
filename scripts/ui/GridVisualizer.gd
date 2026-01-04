@@ -58,9 +58,10 @@ func show_highlights(tiles: Array, color: Color):
 	var mat = StandardMaterial3D.new()
 	mat.albedo_color = color
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color.a = 0.5
+	mat.albedo_color.a = 0.2 # More transparent per user request
 	
 	var mesh = BoxMesh.new()
+
 	mesh.size = Vector3(1.6, 0.1, 1.6)
 	
 	for tile_entry in tiles:
@@ -326,3 +327,67 @@ func draw_ai_intent(from: Vector3, to: Vector3, color: Color):
 	mesh.surface_set_color(color)
 	mesh.surface_add_vertex(to + Vector3(0, 1, 0))
 	mesh.surface_end()
+
+
+func preview_path(points: Array, color: Color = Color.CYAN):
+	clear_preview_path()
+	
+	if points.is_empty():
+		return
+
+	var lines_node = MeshInstance3D.new()
+	lines_node.name = "PreviewPath"
+	lines_node.mesh = ImmediateMesh.new()
+	
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_color = color # Fallback
+	lines_node.material_override = mat
+	add_child(lines_node)
+
+	var mesh = lines_node.mesh as ImmediateMesh
+	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, mat)
+	
+	for p in points:
+		mesh.surface_set_color(color)
+		mesh.surface_add_vertex(p + Vector3(0, 0.5, 0)) # Lift slightly
+		
+	mesh.surface_end()
+
+
+func clear_preview_path():
+	var existing = get_node_or_null("PreviewPath")
+	if existing:
+		existing.free()
+
+
+func show_hover_cursor(grid_pos: Vector2):
+	clear_hover_cursor()
+	
+	if not grid_manager:
+		return
+		
+	var world_pos = grid_manager.get_world_position(grid_pos)
+	
+	var cursor = MeshInstance3D.new()
+	cursor.name = "HoverCursor"
+	
+	var mesh = BoxMesh.new()
+	mesh.size = Vector3(1.7, 0.15, 1.7) # Slightly larger/thicker than highlights
+	cursor.mesh = mesh
+	
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color.WHITE
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color.a = 0.6 # Pop!
+	cursor.material_override = mat
+	
+	cursor.position = world_pos + Vector3(0, 0.65, 0) # Just above highlights
+	add_child(cursor)
+
+
+func clear_hover_cursor():
+	var existing = get_node_or_null("HoverCursor")
+	if existing:
+		existing.free()

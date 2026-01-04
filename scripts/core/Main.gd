@@ -639,6 +639,11 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 			if not input_mgr.on_cancel_command.is_connected(_clear_targeting):
 				input_mgr.on_cancel_command.connect(_clear_targeting)
 
+		if input_mgr.has_signal("on_mouse_hover"):
+			if not input_mgr.on_mouse_hover.is_connected(_on_mouse_hover):
+				input_mgr.on_mouse_hover.connect(_on_mouse_hover)
+
+
 	# 6. Setup Objectives
 	var objective_manager = load("res://scripts/managers/ObjectiveManager.gd").new()
 	objective_manager.name = "ObjectiveManager"
@@ -1285,9 +1290,59 @@ func _on_tile_clicked(grid_pos: Vector2, button_index: int):
 			SignalBus.on_ui_select_unit.emit(target_unit)
 			selected_unit = target_unit
 		# Context Move
-		elif selected_unit and is_instance_valid(selected_unit):
+		# elif selected_unit and is_instance_valid(selected_unit):
 			# Allow click-to-move in Selection state (RTS style)
-			_process_move_or_interact(grid_pos)
+			# DISABLE for Safe Move: User must use Move Action explicitly.
+			# _process_move_or_interact(grid_pos)
+			pass
+
+
+
+func _on_mouse_hover(grid_pos: Vector2):
+	var gv = get_node("GridVisualizer")
+	if not gv:
+		return
+
+	# Show Cursor Highlight ALWAYS if we have a valid grid_pos (UX Pop)
+	gv.show_hover_cursor(grid_pos)
+
+	# Only preview move if we are in a state that allows movement
+	var is_moving_state = (current_input_state == InputState.MOVING)
+	# User Request: Only show new helper when old helper is visible (i.e. only in MOVING state)
+	
+	if is_moving_state and selected_unit and selected_unit.faction == "Player":
+
+		if not selected_unit.is_moving and selected_unit.current_ap > 0:
+			# If hovering self, clear path but keep cursor
+			if grid_pos == selected_unit.grid_pos:
+				gv.clear_preview_path()
+				return
+				
+			var path = grid_manager.get_move_path(selected_unit.grid_pos, grid_pos)
+			if path.is_empty():
+				# Blocked or Unreachable
+				gv.clear_preview_path()
+			else:
+				# Convert to World
+				var world_points = []
+				for p in path:
+					world_points.append(grid_manager.get_world_position(p))
+				
+				# Check Range
+				var dist = path.size() - 1 
+				var color = Color.CYAN
+				
+				# Debug logic: If mobility is 6, path of 7 is Orange.
+				# Assuming unit.mobility is accurate.
+				if dist > selected_unit.mobility:
+					color = Color.ORANGE 
+				
+				gv.preview_path(world_points, color)
+		else:
+			gv.clear_preview_path()
+	else:
+		gv.clear_preview_path()
+
 
 
 func _clear_targeting():
@@ -1298,7 +1353,10 @@ func _clear_targeting():
 	var gv = get_node("GridVisualizer")
 	if gv:
 		gv.clear_highlights()
+		gv.clear_preview_path()
+		gv.clear_hover_cursor()
 	game_ui.log_message("Command Cancelled.")
+
 
 
 func _try_interact():
