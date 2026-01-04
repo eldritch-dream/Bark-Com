@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3 uid="uid://bloodsplatter001"]
+
+[ext_resource type="Script" path="res://scripts/resources/AutoFreeVFX.gd" id="1_vfx"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blood"]
+albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_blood"]
+material = SubResource("StandardMaterial3D_blood")
+size = Vector3(0.15, 0.15, 0.15)
+
+[node name="BloodSplatter" type="CPUParticles3D"]
+emitting = false
+amount = 12
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+mesh = SubResource("BoxMesh_blood")
+direction = Vector3(0, 1, 0)
+spread = 90.0
+initial_velocity_min = 2.0
+initial_velocity_max = 5.0
+scale_amount_min = 0.5
+script = ExtResource("1_vfx")

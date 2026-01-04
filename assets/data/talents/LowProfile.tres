@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="TalentNode" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/TalentNode.gd" id="1_8350c"]
+
+[resource]
+script = ExtResource("1_8350c")
+display_name = "Low Profile"
+description = "Half Cover counts as Full Cover."
+passive_tag = "low_profile"

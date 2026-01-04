@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://pe62mjf3m501"
+path="res://.godot/imported/Safe Haven (Press Start).ogg-879d1b9edfc422cf8f5c09263ea721d0.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/audio/music/Base/Safe Haven (Press Start).ogg"
+dest_files=["res://.godot/imported/Safe Haven (Press Start).ogg-879d1b9edfc422cf8f5c09263ea721d0.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

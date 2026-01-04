@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/EnemyData.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/abilities/MindFractureAbility.gd" id="2_ability"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "The Whisperer"
+max_hp = 40
+mobility = 6
+visual_color = Color(0.5, 0, 0.8, 1)
+ai_behavior = 2
+abilities = Array[Script]([ExtResource("2_ability")])
+primary_weapon = null

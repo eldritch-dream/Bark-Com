@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3 uid="uid://muzzleflash001"]
+
+[ext_resource type="Script" path="res://scripts/resources/AutoFreeVFX.gd" id="1_vfx"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flash"]
+albedo_color = Color(1, 1, 0, 1)
+emission_enabled = true
+emission = Color(1, 0.8, 0, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_flash"]
+material = SubResource("StandardMaterial3D_flash")
+size = Vector3(0.1, 0.1, 0.1)
+
+[node name="MuzzleFlash" type="CPUParticles3D"]
+emitting = false
+amount = 16
+lifetime = 0.2
+one_shot = true
+explosiveness = 1.0
+mesh = SubResource("BoxMesh_flash")
+direction = Vector3(0, 0, -1)
+spread = 30.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 5.0
+initial_velocity_max = 10.0
+scale_amount_min = 0.5
+script = ExtResource("1_vfx")

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ClassData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassData.gd" id="1_class"]
+[ext_resource type="Script" path="res://scripts/abilities/OverwatchAbility.gd" id="2_abil"]
+
+[resource]
+script = ExtResource("1_class")
+display_name = "Recruit"
+description = "Basic training. Reliable."
+base_stats = {
+"accuracy": 65,
+"defense": 0,
+"max_hp": 10,
+"mobility": 6
+}
+rank_tree = {}
+starting_abilities = Array[Script]([ExtResource("2_abil")])

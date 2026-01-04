@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://lbb7ds6tkn5p"
+path="res://.godot/imported/Vintage Dream Loop.ogg-62d2f0198572df32fa4810fa1f6ad3c8.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/audio/music/Base/Vintage Dream Loop.ogg"
+dest_files=["res://.godot/imported/Vintage Dream Loop.ogg-62d2f0198572df32fa4810fa1f6ad3c8.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/WeaponData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+damage = 3
+weapon_range = 4
+ammo_capacity = -1
+display_name = "Syringe Gun"
+cost = 40

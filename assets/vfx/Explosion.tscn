@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3 uid="uid://explosion001"]
+
+[ext_resource type="Script" path="res://scripts/resources/AutoFreeVFX.gd" id="1_vfx"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_explode"]
+albedo_color = Color(1, 0.5, 0, 1)
+emission_enabled = true
+emission = Color(1, 0.2, 0, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_explode"]
+material = SubResource("StandardMaterial3D_explode")
+radius = 0.5
+height = 1.0
+
+[node name="Explosion" type="CPUParticles3D"]
+emitting = false
+amount = 32
+lifetime = 0.8
+one_shot = true
+explosiveness = 1.0
+mesh = SubResource("SphereMesh_explode")
+direction = Vector3(0, 1, 0)
+spread = 180.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 5.0
+initial_velocity_max = 10.0
+scale_amount_min = 0.5
+script = ExtResource("1_vfx")

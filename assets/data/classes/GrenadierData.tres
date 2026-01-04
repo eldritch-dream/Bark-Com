@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ClassData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassData.gd" id="1_class"]
+[ext_resource type="Script" path="res://scripts/abilities/GrenadeToss.gd" id="2_abil"]
+
+[resource]
+script = ExtResource("1_class")
+display_name = "Grenadier"
+description = "Explosives expert. Deals splash damage."
+base_stats = {
+"accuracy": 65,
+"defense": 5,
+"max_hp": 10,
+"mobility": 5
+}
+rank_tree = {}
+starting_abilities = Array[Script]([ExtResource("2_abil")])

@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://cldvv2mmsev5t"
+path="res://.godot/imported/Midnight on 3rd and Vine.ogg-ebc775400e29e5a83541b39987278017.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/audio/music/Base/Midnight on 3rd and Vine.ogg"
+dest_files=["res://.godot/imported/Midnight on 3rd and Vine.ogg-ebc775400e29e5a83541b39987278017.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
