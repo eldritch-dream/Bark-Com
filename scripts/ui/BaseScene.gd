@@ -495,10 +495,15 @@ func _show_roster():
 	title.add_theme_font_size_override("font_size", 24)
 	content_area.add_child(title)
 
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_area.add_child(scroll)
+
 	var grid = GridContainer.new()
 	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_area.add_child(grid)
+	scroll.add_child(grid)
 
 	for c in game_manager.get_roster():
 		var card = PanelContainer.new()

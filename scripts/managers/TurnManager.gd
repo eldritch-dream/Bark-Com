@@ -14,7 +14,16 @@ var is_handling_action: bool = false # Track if an async action (grenade etc) is
 
 
 func _ready():
+	print("TurnManager initialized! Instance ID: ", get_instance_id())
+	
+	# Singleton Enforcement: Prevent duplicate Managers
+	if get_tree().get_nodes_in_group("TurnManager").size() > 0:
+		print("TurnManager: Duplicate detected! Destroying self (Instance ", get_instance_id(), ")")
+		queue_free()
+		return
+
 	add_to_group("TurnManager")
+
 	SignalBus.on_cinematic_mode_changed.connect(_on_cinematic_mode_changed)
 	SignalBus.on_combat_action_started.connect(_on_combat_action_started)
 	SignalBus.on_combat_action_finished.connect(_on_combat_action_finished)

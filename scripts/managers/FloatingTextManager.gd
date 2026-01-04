@@ -18,7 +18,8 @@ func _ready():
 
 # Spawns a floating text label at the given world position
 func spawn_text(position: Vector3, text: String, color: Color = Color.WHITE):
-	print("FTM: Spawning '", text, "' at ", position)
+	# print("FTM: Spawning '", text, "' at ", position) # Commented out for now
+
 
 	var label = Label3D.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED

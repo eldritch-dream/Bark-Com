@@ -173,16 +173,7 @@ static func execute_item_effect(
 			if target_unit.has_method("remove_effect_by_name"):
 				target_unit.remove_effect_by_name("Poison")
 				
-			SignalBus.on_request_floating_text.emit(
-				target_unit.position, "+%d HP" % item.value, Color.GREEN
-			)
-			SignalBus.on_request_vfx.emit(
-				"HealSparkles",
-				target_unit.position + Vector3(0, 1, 0),
-				Vector3.UP,
-				target_unit,
-				null
-			)
+			# VFX/Text handled by Unit.heal()
 			return true
 
 	elif item.effect_type == ConsumableData.EffectType.STRESS_RELIEF:
@@ -247,10 +238,8 @@ static func execute_attack(
 			if attacker.has_method("trigger_bond_growth"):
 				attacker.trigger_bond_growth(target, 3)
 
-			SignalBus.on_request_vfx.emit(
-				"HealSparkles", target.position + Vector3(0, 1, 0), Vector3.UP, target, null
-			)
-
+			# VFX handled by Unit.heal()
+			
 			if GameManager and GameManager.audio_manager:
 				GameManager.audio_manager.play_sfx("SFX_Menu")  # Placeholder
 
