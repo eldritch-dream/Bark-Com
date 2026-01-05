@@ -326,7 +326,6 @@ func check_game_over() -> String:
 
 			GameManager.complete_mission(survivors, true, enemy_survivors)
 		return "WIN"
-		return "WIN"
 	elif status == "LOSS":
 		if game_over:
 			return "LOSS"
@@ -363,8 +362,6 @@ func check_game_over() -> String:
 
 			GameManager.complete_mission(survivors, false, enemy_survivors)
 		# Duplicate logic removed.
-
-		return "LOSS"
 
 		return "LOSS"
 

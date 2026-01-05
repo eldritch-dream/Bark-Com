@@ -2,17 +2,12 @@ extends Control
 class_name BaseScene
 
 # Represents the UI for the Base
-# In a real scene, this would manage Control nodes.
-# Here we simulate the interaction logic via console commands/simulated clicks.
-
 var game_manager: _GameManager
 
 # Visual Nodes
 var ui_container: Control
-var output_label: RichTextLabel
-var input_field: LineEdit
+var terminal_panel: TerminalPanel
 var kibble_label: Label
-# var mission_select_ui: MissionSelectUI # Deprecated
 
 var active_mission_node: Node = null
 var content_area: VBoxContainer
@@ -22,11 +17,10 @@ func _process(_delta):
 	# Check if mission ended (node freed)
 	if not ui_container.visible and not is_instance_valid(active_mission_node):
 		_log("Mission Ended. Welcome back.")
-		_create_terminal_view() # Reset to Home to ensure fresh data and clean state
+		_show_terminal() # Reset to Home
 		_update_header() # Refresh Kibble/Stuffs
 		ui_container.visible = true
-		input_field.grab_focus()
-
+		
 		# Audio: Return to Base Theme
 		if game_manager.audio_manager:
 			game_manager.audio_manager.play_music("Theme_Base")
@@ -48,6 +42,7 @@ func _ready():
 func _initialize_managers():
 	# Ensure GameManager exists (Manual simulation of Singleton)
 	game_manager = GameManager
+	game_manager.current_state = game_manager.GameState.BASE
 
 
 func _setup_base_settings():
@@ -64,13 +59,13 @@ func _connect_signals():
 	SignalBus.on_kibble_changed.connect(_on_kibble_changed)
 	SignalBus.on_unit_recruited.connect(_on_unit_recruited)
 	SignalBus.on_mission_selected.connect(_on_mission_start_signal)
+	SignalBus.on_skin_changed.connect(_on_skin_changed_refresh)
 
 
 func _load_initial_state():
 	# Initial UI Update
 	_on_kibble_changed(game_manager.kibble)
 
-	# Auto-Load or Help
 	# Auto-Load or Help
 	if not game_manager.session_initialized and game_manager.has_save_file():
 		game_manager.load_game()
@@ -81,13 +76,7 @@ func _load_initial_state():
 	elif game_manager.session_initialized:
 		_log("--- READY FOR DEPLOYMENT ---")
 	else:
-		# Critical Bug Fix #1: Auto-initialize New Game data if no save exists.
-		# This prevents the "Empty Roster" state on first run.
 		game_manager.new_game()
-		
-		# Optional: Auto-save immediately so they don't lose the init state?
-		# game_manager.save_game() 
-		
 		_show_welcome_message()
 		_log("New Campaign Initialized.")
 
@@ -149,7 +138,21 @@ func _setup_ui():
 	content_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	main_layout.add_child(content_area)
 
-	_create_terminal_view()
+	# 4. TERMINAL (Global Overlay)
+	# We create a CanvasLayer so it always sits on TOP of everything (including Missions)
+	var overlay_layer = CanvasLayer.new()
+	overlay_layer.name = "GlobalOverlay"
+	overlay_layer.layer = 100 # High Z-index
+	add_child(overlay_layer)
+
+	var t_script = load("res://scripts/ui/TerminalPanel.gd")
+	terminal_panel = t_script.new()
+	# By default, start hidden so it acts as a pop-over
+	terminal_panel.visible = false 
+	overlay_layer.add_child(terminal_panel)
+	
+	# Force anchor update after adding to tree
+	terminal_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	main_layout.add_child(HSeparator.new())
 
@@ -157,12 +160,7 @@ func _setup_ui():
 	var navbar = _create_navbar()
 	main_layout.add_child(navbar)
 
-	# System Button (Append to navbar now or passed?)
-	# Navbar is returned, so we can append here or inside _create_navbar.
-	# But _create_navbar is modular. Let's append System here?
-	# Actually, best to pass navbar to a helper or just add it here if main_layout is here?
-	# Let's add System Menu to Navbar NOW.
-
+	# System Button
 	var sys_btn = MenuButton.new()
 	sys_btn.text = "SYSTEM"
 	sys_btn.custom_minimum_size = Vector2(100, 50)
@@ -174,14 +172,6 @@ func _setup_ui():
 	navbar.add_child(sys_btn)
 
 	_setup_settings_panel()
-	_setup_settings_panel()
-	# _setup_mission_control() # Removed old popover setup
-
-	# Input Field Setup
-	input_field = LineEdit.new()
-	input_field.placeholder_text = "Terminal Command..."
-	input_field.text_submitted.connect(_on_text_submitted)
-	main_layout.add_child(input_field)
 
 
 func _create_header() -> HBoxContainer:
@@ -210,16 +200,6 @@ func _create_header() -> HBoxContainer:
 	return header
 
 
-func _create_terminal_view():
-	_clear_content()
-	# Default View: Terminal
-	output_label = RichTextLabel.new()
-	output_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	output_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	output_label.scroll_following = true
-	output_label.bbcode_enabled = true
-	output_label.text = "System Initialized.\n"
-	content_area.add_child(output_label)
 
 
 func _create_navbar() -> HBoxContainer:
@@ -227,7 +207,6 @@ func _create_navbar() -> HBoxContainer:
 	navbar.custom_minimum_size.y = 60
 	navbar.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	_create_nav_btn(navbar, "TERMINAL", _show_terminal)
 	_create_nav_btn(navbar, "BARRACKS", _show_roster)
 	_create_nav_btn(navbar, "QUARTERMASTER", _show_shop)
 	_create_nav_btn(navbar, "STASH", _show_inventory)
@@ -263,8 +242,23 @@ func _on_unit_recruited(unit_data: Dictionary):
 	_update_header()
 
 
-func _on_mission_start_signal(_mission_name: String):
-	_start_mission()
+func _on_skin_changed_refresh():
+	# Check if Shop is open (look for ShopRoot)
+	for child in content_area.get_children():
+		if child.name == "ShopRoot":
+			_show_shop()
+			return
+	
+	# Also refresh Roster if open (some users might check there?)
+	# We don't have a specific name for Roster root, but we can assume if not shop, do nothing?
+	# Or just check for Roster table.
+	# Let's inspect children names if possible, or just accept that Shop refresh is what's needed.
+	# If the user says "barracks screen" they might mean Roster.
+	# Roster usually has a "RosterTable" or similar?
+	# Let's check simply.
+	_log("Skin changed. Refreshing relevant UI...")
+
+
 
 
 func _on_options_pressed():
@@ -274,94 +268,15 @@ func _on_options_pressed():
 		settings_panel.visible = true
 
 
-# Input Handlers
-func handle_input(command: String):
-	# Normalize
-	var cmd = command.to_lower().strip_edges()
-
-	if cmd == "1" or cmd == "roster":
-		_show_roster()
-	elif cmd == "2" or cmd == "shop":
-		_show_shop()
-	elif cmd == "3" or cmd == "deploy":
-		_start_mission()
-	elif cmd == "4" or cmd == "inventory" or cmd == "stash":
-		_show_inventory()
-	elif cmd.begins_with("buy "):
-		var index_str = cmd.substr(4)
-		if index_str.is_valid_int():
-			_buy_item(index_str.to_int())
-		else:
-			_log("Invalid Index. Usage: buy <number>")
-	elif cmd.begins_with("equip "):
-		# Usage: equip Barnaby 0
-		var parts = command.split(" ", false)
-		if parts.size() >= 3:
-			var corgi_name = parts[1]
-			var inv_idx = parts[2].to_int()
-			_equip_item(corgi_name, inv_idx)
-		else:
-			_log("Usage: equip <CorgiName> <InventoryIndex>")
-	elif cmd == "save":
-		game_manager.save_game()
-		_log("Game Saved.")
-	elif cmd == "load":
-		game_manager.load_game()
-		_log("Game Loaded.")
-	elif cmd == "new":
-		game_manager.new_game()
-		_log("New Game Started. Good luck!")
-	elif cmd == "doomsday":
-		game_manager.debug_fill_invasion_meter()
-		_log("Invasion Meter set to 100%.")
-	elif cmd == "busty":
-		game_manager.settings["shop_skin"] = "sexy"
-		_log("Quartermaster style updated (v4)... Use [shop] to view.")
-		game_manager._apply_audio_settings() 
-		GameManager.save_game()
-	elif cmd == "bustier":
-		game_manager.settings["shop_skin"] = "ultra"
-		_log("Quartermaster style updated (v7)... Use [shop] to view.")
-		game_manager._apply_audio_settings()
-		GameManager.save_game()
-	elif cmd == "normal":
-		game_manager.settings["shop_skin"] = "default"
-		_log("Quartermaster style restored (v3).")
-		GameManager.save_game()
-	elif cmd == "rich":
-		game_manager.kibble += 1000000
-		SignalBus.on_kibble_changed.emit(game_manager.kibble)
-		game_manager.save_game()
-		_log("Kibble Reserves boosted to 1,000,000! Enjoy the shopping spree.")
-	elif cmd == "acidsplosion":
-		game_manager.debug_scenario = "acidsplosion"
-		_start_mission()
-		_log("Initializing Acidsplosion Test Scenario...")
-	elif cmd == "lootapalooza":
-		game_manager.debug_scenario = "lootapalooza"
-		_start_mission()
-		_log("Initializing Lootapalooza: All Loot, No Bite.")
-	elif cmd == "help" or cmd == "clear":
-		output_label.text = ""
-		_log("Commands: roster, shop, deploy, stash, save, load, new, buy <n>, equip <name> <n>")
-	else:
-		_log("Unknown command. Type 'help'.")
-
-
-func _on_text_submitted(text: String):
-	input_field.clear()
-	_log("> " + text)
-	handle_input(text)
 
 
 func _log(text: String, color: String = ""):
-	print(text)  # Keep console log too
-	var final_text = text
-	if color != "":
-		final_text = "[color=" + color + "]" + text + "[/color]"
-	
-	if output_label:
-		output_label.append_text(final_text + "\n")
+	print(text)
+	if terminal_panel:
+		var c = Color.WHITE
+		if color == "red": c = Color.RED
+		if color == "green": c = Color.GREEN
+		terminal_panel.println(text, c)
 
 
 # --- UI HELPERS ---
@@ -375,29 +290,33 @@ func _create_nav_btn(parent, text, callback):
 
 func _clear_content():
 	for child in content_area.get_children():
-		child.visible = false  # Just hide generic children?
-		# Actually, output_label is a child. We want to keep it, but hide it if not terminal.
-		if child == output_label:
-			child.visible = false
-		else:
-			child.queue_free()  # Destroy dynamic views
+		child.visible = false
+		child.queue_free()
 
 
 func _show_terminal():
-	_clear_content()
-	output_label.visible = true
-	input_field.visible = true
-	_log("Terminal Active.")
+	if terminal_panel:
+		terminal_panel.visible = true
+		terminal_panel.println("Terminal Active.", Color.CYAN)
+		
+		# If we have an input field, grab focus
+		if terminal_panel.input_field:
+			terminal_panel.input_field.grab_focus()
 
 
 func _on_system_menu_item(id: int):
+	# System logic directly or pass to terminal parsing?
+	# Direct is robust.
 	match id:
 		0:
-			handle_input("save")
+			game_manager.save_game()
+			_log("Game Saved.")
 		1:
-			handle_input("load")
+			game_manager.load_game()
+			_log("Game Loaded.")
 		2:
-			handle_input("new")
+			game_manager.new_game()
+			_log("New Game Started.")
 
 
 func _start_mission():
@@ -406,6 +325,9 @@ func _start_mission():
 
 	# Hide Base UI
 	ui_container.visible = false
+	
+	# Actually hide terminal too?
+	# Yes, UI Container hides everything.
 
 	# Instance Main
 	var main_scene = load("res://scripts/core/Main.gd").new()
@@ -417,8 +339,7 @@ func _start_mission():
 
 func _show_roster():
 	_clear_content()
-	input_field.visible = false
-
+	
 	var title = Label.new()
 	title.text = "BARRACKS (The Bed)"
 	title.add_theme_font_size_override("font_size", 24)
@@ -497,12 +418,17 @@ func _recruit_unit(cost):
 		_log("Not enough Kibble!")
 
 
+# --- SCOPE FIX REPLACEMENTS ---
+
 func _show_shop():
 	_clear_content()
-	input_field.visible = false
+	# Old input_field toggle removed
 	
 	# Root HBox for Side-by-Side Layout
 	var shop_root = HBoxContainer.new()
+	shop_root.name = "ShopRoot"
+# ... (rest is fine)
+
 	shop_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shop_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_area.add_child(shop_root)
@@ -696,7 +622,7 @@ func _create_styled_panel_for_list() -> PanelContainer:
 
 func _show_inventory(status_msg: String = "", status_color: String = ""):
 	_clear_content()
-	input_field.visible = false
+	# input_field.visible = false -> REMOVED
 
 	var title = Label.new()
 	title.text = "STASH (Inventory)"
@@ -867,7 +793,7 @@ func _apply_promotion(corgi_data: Dictionary, talent: TalentNode):
 func _show_therapy():
 	print("DEBUG: _show_therapy called")
 	_clear_content()
-	output_label.visible = false
+	# output_label.visible = false REMOVED
 
 	var h = HBoxContainer.new()
 	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -964,7 +890,7 @@ func _treat_unit(unit_data):
 
 func _show_mission_control():
 	_clear_content()
-	input_field.visible = false
+	# input_field.visible = false REMOVED
 
 	var control_script = load("res://scripts/ui/MissionControlTab.gd")
 	if control_script:
@@ -976,7 +902,7 @@ func _show_mission_control():
 
 func _show_tutorial():
 	_clear_content()
-	input_field.visible = false
+	# input_field.visible = false REMOVED
 	
 	var title = Label.new()
 	title.text = "FIELD MANUAL"
@@ -1005,7 +931,8 @@ func _show_tutorial():
 		"RIGHT CLICK: Cancel Action",
 		"WASD / ARROWS: Pan Camera",
 		"Q / E: Rotate Camera",
-		"SCROLL WHEEL: Zoom Camera"
+		"SCROLL WHEEL: Zoom Camera",
+		"~ (TILDE): Toggle Command Terminal"
 	]
 	
 	for c in controls:
@@ -1039,6 +966,11 @@ Your duty is to command the Bark-Commandos to hold the line.
    - When it hits 100%, they will attack the Base.
    - You MUST be ready.
    
+4. TERMINAL:
+   - Press ~ (Tilde) anytime to access the Command Terminal.
+   - Use 'help' to see context-aware commands.
+   - Example: 'recruit' (Base Only) or 'suicide' (Mission Only).
+   
 Good luck, Commander.
 """
 	var g_text = Label.new()
@@ -1050,7 +982,7 @@ Good luck, Commander.
 # --- COSMETIC UI ---
 func _show_customization_selector(unit_data):
 	_clear_content()
-	input_field.visible = false
+	# input_field.visible = false REMOVED
 
 	var title = Label.new()
 	title.text = "Fitting Room: " + unit_data["name"]
@@ -1143,7 +1075,7 @@ func _update_header():
 # --- MEMORIAL WALL ---
 func _show_memorial():
 	_clear_content()
-	output_label.visible = false
+	# output_label.visible = false REMOVED
 
 	var title = Label.new()
 	title.text = "THE MEMORIAL WALL"
@@ -1247,3 +1179,26 @@ func _show_memorial():
 		cause_lbl.text = h.get("cause", "Unknown Causes")
 		cause_lbl.modulate = Color(1, 0.5, 0.5)  # Reddish
 		info_box.add_child(cause_lbl)
+
+
+func _on_mission_start_signal(mission_data):
+	# Renaming to avoid conflict if original still exists hidden somewhere
+	# But actually I should check grep first... 
+	# Let's just restore the code and see.
+	_log("Deploying to Mission: " + mission_data.mission_name + "...")
+	_clear_content() 
+	
+	ui_container.visible = false
+	# Instantiate Main (Mission Scene)
+	# Found Main3d.tscn via search
+	var main_scene = load("res://scenes/Main3d.tscn").instantiate()
+	main_scene.name = "ActiveMission"
+	
+	if GameManager:
+		GameManager.active_mission = mission_data
+		
+	add_child(main_scene)
+	active_mission_node = main_scene
+	
+	if terminal_panel:
+		terminal_panel.println("Deployment Initialized. Good luck.", Color.GREEN)

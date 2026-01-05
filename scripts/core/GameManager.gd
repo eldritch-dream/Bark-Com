@@ -873,7 +873,7 @@ func start_mission(mission: MissionData, custom_squad: Array = []):
 	else:
 		deploying_squad = get_ready_corgis()
 
-	SignalBus.on_mission_selected.emit(mission.mission_name)
+	SignalBus.on_mission_selected.emit(mission)
 
 	# Switch Logic handled by BaseScene listener
 	# get_tree().change_scene_to_file(mission.map_scene_path)

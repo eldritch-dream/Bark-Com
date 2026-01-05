@@ -25,6 +25,7 @@ signal on_mission_ended(victory: bool, rewards: int)
 signal on_kibble_changed(new_amount: int)
 signal on_unit_recruited(unit_data: Dictionary)
 signal on_mission_selected(mission_id: String)
+signal on_skin_changed()
 signal on_xp_gained(unit_name: String, amount: int)
 signal on_level_up(unit_name: String, new_level: int)
 

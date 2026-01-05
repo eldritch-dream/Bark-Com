@@ -27,6 +27,10 @@ var grid_manager
 
 
 func _ready():
+	# Update Game State
+	if GameManager:
+		GameManager.current_state = GameManager.GameState.MISSION
+	
 	# Setup Initialization
 	var gm = GridManager.new()
 	gm.name = "GridManager"
