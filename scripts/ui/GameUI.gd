@@ -9,6 +9,12 @@ var selected_unit
 var turn_banner_overlay: ColorRect
 var turn_banner_label: Label
 
+# Overlay Elements
+var objective_panel: PanelContainer
+var objective_label: RichTextLabel
+var menu_button: Button
+var pause_menu: Control
+
 var hp_bar: ProgressBar
 var hp_label: Label
 var ap_bar: ProgressBar
@@ -30,7 +36,11 @@ var hit_chance_label: Label
 
 # Phase 57: Squad List
 var squad_container: VBoxContainer
+var squad_list_container: VBoxContainer
 var squad_frames: Array = []  # List of SquadMemberFrame
+
+var options_panel: OptionsPanel
+var squad_detail_panel: SquadDetailPanel
 
 signal action_requested(action_name)
 signal ability_requested(ability)
@@ -43,6 +53,12 @@ func _setup_ui():
 	var root = Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let clicks pass through empty space
+	
+	# Apply Global Theme
+	var g_theme = load("res://resources/GameTheme.tres")
+	if g_theme:
+		root.theme = g_theme
+		
 	add_child(root)
 
 	# 1. TURN BANNER (FullScreen Overlay)
@@ -78,6 +94,17 @@ func _setup_ui():
 	squad_container = VBoxContainer.new()
 	squad_container.add_theme_constant_override("separation", 10)
 	squad_panel.add_child(squad_container)
+	
+	var squad_header_btn = Button.new()
+	squad_header_btn.text = "FULL SQUAD DETAILS"
+	squad_header_btn.custom_minimum_size = Vector2(150, 30)
+	squad_header_btn.pressed.connect(_on_squad_detail_pressed)
+	squad_container.add_child(squad_header_btn)
+	
+	# Dynamic List Container (So we don't clear the button)
+	squad_list_container = VBoxContainer.new()
+	squad_list_container.add_theme_constant_override("separation", 10)
+	squad_container.add_child(squad_list_container)
 
 	# 2. BOTTOM PANEL (Card + Actions)
 	var bottom_panel = PanelContainer.new()
@@ -96,7 +123,7 @@ func _setup_ui():
 
 	var v_card = VBoxContainer.new()
 	unit_card_panel.add_child(v_card)
-
+	
 	# Name
 	unit_name_label = Label.new()
 	unit_name_label.text = "No Selection"
@@ -151,6 +178,8 @@ func _setup_ui():
 	sanity_label.add_theme_font_size_override("font_size", 10)
 	sanity_bar.add_child(sanity_label)
 	sanity_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	
+	
 
 	# Action Bar (Center)
 	action_bar_container = HBoxContainer.new()
@@ -204,22 +233,59 @@ func _setup_ui():
 	hit_chance_breakdown = VBoxContainer.new()
 	v_hit.add_child(hit_chance_breakdown)
 
-	# ABORT BUTTON (Top Right, below Hit Panel)
-	var abort_btn = Button.new()
-	abort_btn.text = "ABORT MISSION"
-	abort_btn.modulate = Color(1, 0.4, 0.4)  # Reddish
-	abort_btn.text = "ABORT MISSION"
-	abort_btn.modulate = Color(1, 0.4, 0.4)  # Reddish
-	abort_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	abort_btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN  # Grow Leftwards
-	abort_btn.offset_top = 20
-	abort_btn.offset_right = -20
-	abort_btn.custom_minimum_size = Vector2(200, 50)
-	abort_btn.z_index = 10  # Ensure on top
-	# Manual position: Anchor Top Right seems buggy in some setups if parents don't expand.
-	# Let's try forcing position relative to viewport if needed, but anchors should work.
+	# 4. TOP RIGHT: OBJECTIVE PANEL & MENU
+	var top_right_container = VBoxContainer.new()
+	top_right_container.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	top_right_container.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	top_right_container.offset_top = 20
+	top_right_container.offset_right = -20
+	top_right_container.add_theme_constant_override("separation", 10)
+	root.add_child(top_right_container)
 
-	root.add_child(abort_btn)
+	# HEADER ROW (Msg + Menu)
+	var tr_header = HBoxContainer.new()
+	tr_header.alignment = BoxContainer.ALIGNMENT_END
+	top_right_container.add_child(tr_header)
+
+	# Objective Panel
+	objective_panel = PanelContainer.new()
+	tr_header.add_child(objective_panel)
+	var obj_margin = MarginContainer.new()
+	obj_margin.add_theme_constant_override("margin_left", 10)
+	obj_margin.add_theme_constant_override("margin_right", 10)
+	objective_panel.add_child(obj_margin)
+	
+	objective_label = RichTextLabel.new()
+	objective_label.text = "Obj: Unknown"
+	objective_label.fit_content = true
+	objective_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	objective_label.custom_minimum_size = Vector2(200, 0)
+	obj_margin.add_child(objective_label)
+
+	# Menu Button (Beside Objective)
+	menu_button = Button.new()
+	menu_button.text = "MENU"
+	menu_button.custom_minimum_size = Vector2(80, 0)
+	tr_header.add_child(menu_button)
+	menu_button.pressed.connect(toggle_pause_menu)
+
+	# Shift Abort Button to be managed here or removed?
+	# Existing ABORT BUTTON (Modified placement)
+
+	# ABORT BUTTON (Moved to Container)
+	var abort_btn = Button.new()
+	abort_btn.text = "ABORT"
+	abort_btn.modulate = Color(1, 0.4, 0.4)
+	abort_btn.custom_minimum_size = Vector2(80, 0)
+	# Align Right
+	abort_btn.size_flags_horizontal = Control.SIZE_SHRINK_END 
+	top_right_container.add_child(abort_btn)
+	abort_btn.pressed.connect(func(): action_requested.emit("Abort"))
+	
+	# SETUP PAUSE MENU
+	_setup_pause_menu(root)
+	_setup_overlay_elements() # Call this last or merge? We just did overlay elements above.
+
 	abort_btn.pressed.connect(func(): action_requested.emit("Abort"))
 	# print("GameUI: Abort Button Created.")
 
@@ -274,6 +340,7 @@ func initialize(tm, gm):
 
 func _ready():
 	_setup_ui()
+	_setup_panels()
 	# Connect SignalBus
 	SignalBus.on_unit_stats_changed.connect(_on_sb_unit_udpate)
 	SignalBus.on_unit_health_changed.connect(_on_sb_health_update)
@@ -282,7 +349,7 @@ func _ready():
 	SignalBus.on_mission_ended.connect(_on_sb_mission_ended)
 	SignalBus.on_show_hit_chance.connect(show_hit_chance)
 	SignalBus.on_hide_hit_chance.connect(hide_hit_chance)
-	SignalBus.on_ui_select_unit.connect(select_unit)
+	SignalBus.on_ui_select_unit.connect(_select_unit)
 	SignalBus.on_cinematic_mode_changed.connect(_on_cinematic_mode)
 
 
@@ -450,6 +517,32 @@ func _update_unit_card():
 		return
 
 	unit_name_label.text = selected_unit.name
+	
+	# Class Icon Update
+	var v_card = unit_card_panel.get_child(0)
+	var icon_node = v_card.get_node_or_null("ClassIcon")
+	if not icon_node:
+		icon_node = TextureRect.new()
+		icon_node.name = "ClassIcon"
+		icon_node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_node.custom_minimum_size = Vector2(48, 48) # Bigger for main UI
+		icon_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		# Insert at top
+		v_card.add_child(icon_node)
+		v_card.move_child(icon_node, 0)
+		
+	var cls = selected_unit.unit_class if "unit_class" in selected_unit else "Recruit"
+	# Check for Enemy Faction
+	if "faction" in selected_unit and selected_unit.faction == "Enemy":
+		# Maybe enemy class logic matches their name or type?
+		# Assuming Enemy units have 'unit_class' or we derive from name?
+		# Fallback to name if class missing
+		if not "unit_class" in selected_unit:
+			# Try to deduce from name or skip
+			# Actually, Enemy classes (Rusher, Spitter) are usually their "unit_class" or "corgi_class" (now unit_class)
+			pass
+			
+	icon_node.texture = ClassIconManager.get_class_icon(cls)
 
 	# Update Bars
 	hp_bar.max_value = selected_unit.max_hp
@@ -474,7 +567,7 @@ func _update_unit_card():
 		sanity_bar.visible = false
 
 	# BONDS DISPLAY
-	var v_card = unit_card_panel.get_child(0)
+	# v_card is already declared at top
 	var bond_label = v_card.get_node_or_null("BondLabel")
 	if not bond_label:
 		bond_label = Label.new()
@@ -688,6 +781,30 @@ func _select_unit(unit):
 
 	# Emit signal so Main knows to focus camera / update selection
 	emit_signal("unit_selection_changed", unit)
+	
+	# Update Highlight Visuals
+	_update_squad_highlights(unit)
+
+
+func _update_squad_highlights(sel_unit):
+	if squad_list_container:
+		for child in squad_list_container.get_children():
+			# Robust Access via Metadata
+			if child.has_meta("frame_style"):
+				var style = child.get_meta("frame_style")
+				if child.has_meta("unit_ref") and child.get_meta("unit_ref") == sel_unit:
+					# Selected
+					style.border_width_left = 2
+					style.border_width_top = 2
+					style.border_width_right = 2
+					style.border_width_bottom = 2
+					style.border_color = Color.WHITE
+				else:
+					# Deselected
+					style.border_width_left = 0
+					style.border_width_top = 0
+					style.border_width_right = 0
+					style.border_width_bottom = 0
 
 
 func _input(event):
@@ -720,3 +837,267 @@ signal unit_selection_changed(unit)
 func hide_hit_chance():
 	if hit_chance_panel:
 		hit_chance_panel.visible = false
+
+
+# ------------------------------------------------------------------------------
+# COMBAT INFO OVERLAY & MENU
+# ------------------------------------------------------------------------------
+
+func _setup_overlay_elements():
+	# Initial populate of empty squad
+	update_squad_overlay([])
+	pass
+
+
+func update_objectives(text: String):
+	if objective_label:
+		objective_label.text = text
+
+
+func update_squad_overlay(units: Array):
+	if not squad_list_container:
+		return
+		
+	# Clear existing
+	for child in squad_list_container.get_children():
+		child.queue_free()
+		
+	# Populate
+	for unit in units:
+		if is_instance_valid(unit) and unit.get("faction") == "Player":
+			_create_squad_frame(unit)
+
+
+func _create_squad_frame(unit):
+	# Mini Frame: [Name | HP | AP]
+	# Or [Avatar] [VBox: Name, Bars]
+	var frame = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.5)
+	frame.add_theme_stylebox_override("panel", style)
+	squad_list_container.add_child(frame)
+	
+	var hbox = HBoxContainer.new()
+	frame.add_child(hbox)
+	
+	# Class Icon
+	var icon_tex = ClassIconManager.get_class_icon(unit.unit_class if "unit_class" in unit else "Recruit")
+	var icon_rect = TextureRect.new()
+	icon_rect.texture = icon_tex
+	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon_rect.custom_minimum_size = Vector2(24, 24)
+	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hbox.add_child(icon_rect)
+
+	# Name (Portrait Placeholder)
+	var name_lbl = Label.new()
+	name_lbl.text = unit.unit_name.left(3).to_upper() # Abbrev
+	name_lbl.custom_minimum_size.x = 40
+	hbox.add_child(name_lbl)
+	
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(vbox)
+	
+	# HP Bar
+	var hp = ProgressBar.new()
+	hp.custom_minimum_size = Vector2(100, 10)
+	hp.show_percentage = false
+	var hp_bg = StyleBoxFlat.new(); hp_bg.bg_color = Color(0.2, 0.1, 0.1)
+	var hp_fl = StyleBoxFlat.new(); hp_fl.bg_color = Color(0.8, 0.2, 0.2)
+	hp.add_theme_stylebox_override("background", hp_bg)
+	hp.add_theme_stylebox_override("fill", hp_fl)
+	hp.max_value = unit.max_hp
+	hp.value = unit.current_hp
+	vbox.add_child(hp)
+	
+	# Sanity Bar (Mini)
+	var san = ProgressBar.new()
+	san.custom_minimum_size = Vector2(100, 6)
+	san.show_percentage = false
+	var san_fl = StyleBoxFlat.new(); san_fl.bg_color = Color(0.6, 0.2, 0.8) # Purple
+	san.add_theme_stylebox_override("fill", san_fl)
+	san.max_value = unit.max_sanity
+	san.value = unit.current_sanity
+	vbox.add_child(san)
+	
+	# AP Pips (Text)
+	var ap_lbl = Label.new()
+	ap_lbl.text = "AP: " + str(unit.current_ap) + "/" + str(unit.max_ap)
+	ap_lbl.add_theme_font_size_override("font_size", 10)
+	vbox.add_child(ap_lbl)
+
+	# Click Overlay
+	var btn = Button.new()
+	btn.flat = true
+	btn.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.add_child(btn)
+	btn.pressed.connect(func(): _select_unit(unit))
+	
+	# Meta Tag for Selection Tracking
+	frame.set_meta("unit_ref", unit)
+	frame.set_meta("frame_style", style) # Store Update Reference
+	
+	# Check initial selection state
+	if selected_unit == unit:
+		style.border_width_left = 2
+		style.border_width_top = 2
+		style.border_width_right = 2
+		style.border_width_bottom = 2
+		style.border_color = Color.WHITE
+
+
+# ------------------------------------------------------------------------------
+# PAUSE MENU
+# ------------------------------------------------------------------------------
+
+var pause_mission_label: Label
+var pause_squad_list: VBoxContainer
+
+func _setup_pause_menu(root_node):
+	pause_menu = Control.new()
+	pause_menu.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_menu.visible = false
+	root_node.add_child(pause_menu)
+	
+	# Dim Background
+	var bg = ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0, 0, 0, 0.85)
+	pause_menu.add_child(bg)
+	
+	# Main Container centered
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_menu.add_child(center)
+	
+	var content = VBoxContainer.new()
+	content.custom_minimum_size = Vector2(600, 400)
+	center.add_child(content)
+	
+	# Title
+	var title = Label.new()
+	title.text = "MISSION PAUSED"
+	title.add_theme_font_size_override("font_size", 48)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+	
+	# Tabs
+	var tabs = TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(tabs)
+	
+	# Tab 1: Mission
+	var t_mission = VBoxContainer.new()
+	t_mission.name = "Mission"
+	tabs.add_child(t_mission)
+	pause_mission_label = Label.new()
+	pause_mission_label.text = "Current Objectives:"
+	t_mission.add_child(pause_mission_label)
+	
+	
+	
+	# Tab 3: Help
+	var t_help = RichTextLabel.new()
+	t_help.name = "Help"
+	t_help.text = "\n[b]CONTROLS[/b]\n\n[color=yellow]Select Unit:[/color] Left Click\n[color=yellow]Move:[/color] Click 'Move' or Press '1' -> Hover Tile -> Click\n[color=yellow]Attack:[/color] Click 'Attack' or Press '2' -> Click Target\n[color=yellow]Camera:[/color] WASD / Arrow Keys\n[color=yellow]Rotate:[/color] Q / E\n[color=yellow]Menu:[/color] ESC"
+	t_help.bbcode_enabled = true
+	tabs.add_child(t_help)
+	
+	# Buttons (Resume / Quit)
+	var footer = HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_CENTER
+	footer.add_theme_constant_override("separation", 20)
+	content.add_child(footer)
+	
+	var btn_resume = Button.new()
+	btn_resume.text = "RESUME"
+	btn_resume.custom_minimum_size = Vector2(150, 50)
+	btn_resume.pressed.connect(toggle_pause_menu)
+	footer.add_child(btn_resume)
+	
+	var btn_opts = Button.new()
+	btn_opts.text = "OPTIONS"
+	btn_opts.custom_minimum_size = Vector2(150, 50)
+	btn_opts.pressed.connect(_on_options_pressed)
+	footer.add_child(btn_opts)
+	
+	var btn_quit = Button.new()
+	btn_quit.text = "ABORT MISSION"
+	btn_quit.custom_minimum_size = Vector2(150, 50)
+	btn_quit.modulate = Color(1, 0.4, 0.4)
+	btn_quit.pressed.connect(func(): 
+		toggle_pause_menu()
+		action_requested.emit("Abort")
+	)
+	footer.add_child(btn_quit)
+
+
+func toggle_pause_menu():
+	if pause_menu:
+		pause_menu.visible = !pause_menu.visible
+		if pause_menu.visible:
+			_refresh_pause_menu()
+
+
+func _refresh_pause_menu():
+	# Settings refresh?
+	pass
+	
+	# Update Mission Objectives
+	if pause_mission_label:
+		var txt = "Current Objectives:\n"
+		
+		# Fetch from ObjectiveManager via Main -> ObjectiveManager (or singleton if available)
+		# Assuming Main is root or we have reference? GameUI -> Main?
+		# GameUI doesn't explicitly store Main, but it's a child.
+		# Ideally ObjectiveManager should be a Global or passed in.
+		# GameUI has 'grid_manager' and 'turn_manager' passed in init.
+		# Let's try to get ObjectiveManager via group or parent.
+		var objs = get_tree().get_nodes_in_group("ObjectiveManager")
+		var om = null
+		if objs.size() > 0:
+			om = objs[0]
+		
+		# Fallback: Check parent (Main)
+		if not om:
+			var main = get_parent()
+			if main and main.has_node("ObjectiveManager"):
+				om = main.get_node("ObjectiveManager")
+		
+		if om:
+			var txt_sum = om.get_objective_text()
+			if txt_sum:
+				txt += "- " + txt_sum
+			else:
+				txt += "[color=green]- Survive[/color]"
+		else:
+			txt += "Unknown"
+			
+		pause_mission_label.text = txt
+
+# --- NEW PANELS ---
+func _setup_panels():
+	# Options Panel
+	var opt_script = load("res://scripts/ui/OptionsPanel.gd")
+	if opt_script:
+		options_panel = opt_script.new()
+		add_child(options_panel)
+		
+	# Squad Detail Panel
+	var sq_script = load("res://scripts/ui/SquadDetailPanel.gd")
+	if sq_script:
+		squad_detail_panel = sq_script.new()
+		add_child(squad_detail_panel)
+
+func _on_squad_detail_pressed():
+	if squad_detail_panel:
+		# Gather active squad
+		var units = []
+		if turn_manager and turn_manager.units:
+			units = turn_manager.units.filter(func(u): return is_instance_valid(u) and u.get("faction") == "Player")
+		squad_detail_panel.open(units)
+
+func _on_options_pressed():
+	if options_panel:
+		options_panel.open()

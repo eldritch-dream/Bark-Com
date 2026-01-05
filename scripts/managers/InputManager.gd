@@ -9,6 +9,8 @@ signal on_rotation_request(direction: int)  # -1 Left, 1 Right
 signal on_cancel_command
 signal on_intro_skipped
 signal on_debug_action(action: String)
+signal on_pause_toggle
+
 
 # Configuration
 const RAY_LENGTH = 1000.0
@@ -105,9 +107,13 @@ func _handle_camera_controls(event):
 		and event.button_index == MOUSE_BUTTON_RIGHT
 		and event.pressed
 	):
-		# Holding right click for drag? Or click to cancel?
-		# Current design: Right Click Drag Rotate.
-		# Let's handle generic Right Click as "Cancel" if short?
+		# Right Click -> Cancel Command
+		on_cancel_command.emit()
+
+	# Pause / Menu
+	if event.is_action_pressed("ui_cancel"):
+		on_pause_toggle.emit()
+
 		# Or emit "on_cancel" on Release if no drag?
 		# Simpler: Main.gd logic used Right Click for Cancel.
 		pass

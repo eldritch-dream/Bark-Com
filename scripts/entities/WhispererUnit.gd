@@ -9,7 +9,7 @@ class_name WhispererUnit
 func _ready():
 	super._ready()
 	name = "The Whisperer"
-	character_name = "The Whisperer"
+	unit_name = "The Whisperer"
 	max_hp = 40  # Low HP
 	current_hp = 40
 	mobility = 6  # Mobile

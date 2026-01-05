@@ -33,6 +33,11 @@ func _process(_delta):
 
 
 func _ready():
+	# Apply Global Theme
+	var g_theme = load("res://resources/GameTheme.tres")
+	if g_theme:
+		theme = g_theme
+
 	_initialize_managers()
 	_setup_base_settings()
 	_setup_ui()
@@ -237,89 +242,13 @@ var music_slider: HSlider
 var sfx_slider: HSlider
 
 
+# REPLACED BY OptionsPanel
 func _setup_settings_panel():
-	settings_panel = PanelContainer.new()
-	settings_panel.set_anchors_preset(Control.PRESET_CENTER)
-	settings_panel.visible = false
-	ui_container.add_child(settings_panel)
-
-	var vbox = VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(300, 200)
-	settings_panel.add_child(vbox)
-
-	# Title
-	var title = Label.new()
-	title.text = "AUDIO SETTINGS"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-
-	vbox.add_child(HSeparator.new())
-
-	# Music Slider
-	vbox.add_child(Label.new())
-	var m_label = Label.new()
-	m_label.text = "Music Volume"
-	vbox.add_child(m_label)
-
-	music_slider = HSlider.new()
-	music_slider.min_value = 0.0
-	music_slider.max_value = 1.0
-	music_slider.step = 0.05
-	music_slider.value = game_manager.settings["music_vol"]  # Init from persisted
-	music_slider.value_changed.connect(_on_music_volume_changed)
-	vbox.add_child(music_slider)
-
-	# SFX Slider
-	vbox.add_child(Label.new())
-	var s_label = Label.new()
-	s_label.text = "SFX Volume"
-	vbox.add_child(s_label)
-
-	sfx_slider = HSlider.new()
-	sfx_slider.min_value = 0.0
-	sfx_slider.max_value = 1.0
-	sfx_slider.step = 0.05
-	sfx_slider.value = game_manager.settings["sfx_vol"]  # Init from persisted
-	sfx_slider.value_changed.connect(_on_sfx_volume_changed)
-	vbox.add_child(sfx_slider)
-
-	vbox.add_child(HSeparator.new())
-
-	# Fullscreen Toggle
-	var fs_check = CheckBox.new()
-	fs_check.text = "Fullscreen"
-	# Check current state
-	var is_fs = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-	fs_check.button_pressed = is_fs
-	fs_check.toggled.connect(_on_fullscreen_toggled)
-	vbox.add_child(fs_check)
-
-	vbox.add_child(HSeparator.new())
-
-	# Close Button
-	var close_btn = Button.new()
-	close_btn.text = "CLOSE"
-	close_btn.pressed.connect(func(): settings_panel.visible = false)
-	vbox.add_child(close_btn)
-
-
-func _on_music_volume_changed(val: float):
-	if game_manager:
-		game_manager.settings["music_vol"] = val
-		game_manager._apply_audio_settings()
-
-
-func _on_sfx_volume_changed(val: float):
-	if game_manager:
-		game_manager.settings["sfx_vol"] = val
-		game_manager._apply_audio_settings()
-
-
-func _on_fullscreen_toggled(toggled_on: bool):
-	if toggled_on:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-	else:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	var options_script = load("res://scripts/ui/OptionsPanel.gd")
+	if options_script:
+		settings_panel = options_script.new()
+		ui_container.add_child(settings_panel)
+		# It handles its own visibility initialization
 
 
 # Signal Callbacks
@@ -339,10 +268,10 @@ func _on_mission_start_signal(_mission_name: String):
 
 
 func _on_options_pressed():
-	settings_panel.visible = true
-	if game_manager and music_slider and sfx_slider:
-		music_slider.value = game_manager.settings["music_vol"]
-		sfx_slider.value = game_manager.settings["sfx_vol"]
+	if settings_panel and settings_panel.has_method("open"):
+		settings_panel.open()
+	else:
+		settings_panel.visible = true
 
 
 # Input Handlers
@@ -505,139 +434,40 @@ func _show_roster():
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(grid)
 
+	var card_script = load("res://scripts/ui/UnitInfoCard.gd")
+
 	for c in game_manager.get_roster():
-		var card = PanelContainer.new()
-		card.custom_minimum_size = Vector2(250, 100)
-		grid.add_child(card)
-
-		# Visual Layout: [Portrait] [Info]
-		var hbox = HBoxContainer.new()
-		card.add_child(hbox)
-
-		# PORTRAIT
-		var portrait_script = load("res://scripts/ui/UnitPortraitConfig.gd")
-		if portrait_script:
-			var portrait = portrait_script.new()
-			# portrait.custom_minimum_size assigned in _ready
-			hbox.add_child(portrait)
-			# We must wait for ready? or call update manually?
-			# Since we just added it, _ready runs.
-			# But we need to pass data.
-			portrait.update_portrait(c)
-
-		var vbox = VBoxContainer.new()
-		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hbox.add_child(vbox)
-
-		var name_lbl = Label.new()
-		var cls_name = c.get("class", "Recruit")
-		name_lbl.text = c["name"] + " [" + cls_name + "] (Lvl " + str(c["level"]) + ")"
-		vbox.add_child(name_lbl)
-
-		var status_lbl = Label.new()
-		var status_txt = "Ready" if c["status"] == "Ready" else "Resting"
-		status_lbl.text = "Status: " + status_txt
-		status_lbl.modulate = Color.GREEN if c["status"] == "Ready" else Color.YELLOW
-		vbox.add_child(status_lbl)
-
-		# Stats (HP & Sanity)
-		var max_hp = game_manager.calculate_max_hp(c)
-		var hp_val = c.get("hp", max_hp)  # Default to Max if not set (fresh recruit)
-		var san_val = int(c.get("sanity", 100))
-		var hp_txt = "HP: " + str(hp_val) + "/" + str(max_hp)
-		if san_val < 100:
-			hp_txt += " | SAN: " + str(san_val) + "%"
-		else:
-			hp_txt += " | SAN: 100%"
-
-		var stat_lbl = Label.new()
-		stat_lbl.text = hp_txt
-		# Color code low sanity
-		if san_val < 50:
-			stat_lbl.modulate = Color.VIOLET
-		vbox.add_child(stat_lbl)
-
-		var weapon_name = "Default Bark"
-		if c.get("primary_weapon") and c["primary_weapon"] != null:
-			weapon_name = c["primary_weapon"].display_name
-		var w_lbl = Label.new()
-		w_lbl.text = "Wpn: " + weapon_name
-		vbox.add_child(w_lbl)
-
-		# INVENTORY DISPLAY
-		var inv_items = c.get("inventory", [])
-		var item_names = []
-		if not inv_items.is_empty():
-			for item in inv_items:
-				if item:
-					item_names.append(item.display_name)
+		var vbox_wrapper = VBoxContainer.new()
+		vbox_wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(vbox_wrapper)
 		
-		# Now check actual items found
-		if item_names.size() > 0:
-			var inv_text = "Items: " + ", ".join(item_names)
-			var inv_lbl = Label.new()
-			inv_lbl.text = inv_text
-			inv_lbl.add_theme_font_size_override("font_size", 12)
-			inv_lbl.modulate = Color(0.7, 0.9, 1.0) # Light cyan
-			vbox.add_child(inv_lbl)
-		else:
-			var inv_lbl = Label.new()
-			inv_lbl.text = "Items: (Empty)"
-			inv_lbl.add_theme_font_size_override("font_size", 12)
-			inv_lbl.modulate = Color(0.5, 0.5, 0.5) # Gray
-			vbox.add_child(inv_lbl)
-
-		# PROMOTION CHECK
-		var xp = c.get("xp", 0)
-		var lvl = c.get("level", 1)
-		# Simple Threshold: Level * 100 XP needed for NEXT level
-		var needed = lvl * 100
-
-		if xp >= needed:
-			var promo_btn = Button.new()
-			promo_btn.text = "PROMOTE! (Rank " + str(lvl + 1) + ")"
-			promo_btn.modulate = Color.YELLOW
-			promo_btn.pressed.connect(func(): _start_promotion(c))
-			vbox.add_child(promo_btn)
-		else:
-			var xp_lbl = Label.new()
-			xp_lbl.text = "XP: " + str(xp) + " / " + str(needed)
-			xp_lbl.add_theme_font_size_override("font_size", 12)
-			vbox.add_child(xp_lbl)
-
-		# RELATIONSHIPS
-		var bonds_found = false
-		var bond_text = ""
-		for other in game_manager.get_roster():
-			if other["name"] == c["name"]:
-				continue
-			var bond_lvl = game_manager.get_bond_level(c["name"], other["name"])
-			if bond_lvl > 0:
-				if not bonds_found:
-					bonds_found = true
-					bond_text = "❤ Bonds:"
-
-				var rank_name = "Buddy"
-				if bond_lvl == 2:
-					rank_name = "Packmate"
-				elif bond_lvl == 3:
-					rank_name = "Soul Pup"
-
-				bond_text += "\n  - " + other["name"] + " (" + rank_name + ")"
-
-		if bonds_found:
-			var bond_lbl = Label.new()
-			bond_lbl.text = bond_text
-			bond_lbl.modulate = Color(1, 0.5, 0.5)  # Pinkish
-			bond_lbl.add_theme_font_size_override("font_size", 12)
-			vbox.add_child(bond_lbl)
-
-		# CUSTOMIZATION BUTTON
+		var panel = PanelContainer.new()
+		vbox_wrapper.add_child(panel)
+		
+		if card_script:
+			var info_card = card_script.new()
+			panel.add_child(info_card)
+			info_card.setup(c)
+			
+		# Actions Row
+		var actions = HBoxContainer.new()
+		vbox_wrapper.add_child(actions)
+		
 		var look_btn = Button.new()
-		look_btn.text = "CUSTOMIZE LOOK"
+		look_btn.text = "Customize"
 		look_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		look_btn.pressed.connect(func(): _show_customization_selector(c))
-		vbox.add_child(look_btn)
+		actions.add_child(look_btn)
+		
+		# Promote?
+		var lvl = c.get("level", 1)
+		var xp = c.get("xp", 0)
+		if xp >= (lvl * 100):
+			var promo = Button.new()
+			promo.text = "PROMOTE!"
+			promo.modulate = Color.YELLOW
+			promo.pressed.connect(func(): _start_promotion(c))
+			actions.add_child(promo)
 
 	# RECRUITMENT BUTTON
 	content_area.add_child(HSeparator.new())
@@ -1065,7 +895,7 @@ func _show_therapy():
 
 	for unit_data in GameManager.roster:
 		var san = int(unit_data.get("sanity", 100))
-		var max_san = 100
+		var max_san = int(unit_data.get("max_sanity", 100))
 
 		# Styled Panel
 		var panel = _create_styled_panel_for_list()

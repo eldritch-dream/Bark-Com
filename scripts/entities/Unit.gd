@@ -7,8 +7,8 @@ signal on_death(unit)
 
 # --- CONFIGURATION ---
 @export_group("Identity")
-@export var character_name: String = ""  # The display name (e.g. "Dr. Bark")
-@export var corgi_class: String = "Recruit"
+@export var unit_name: String = ""  # The display name (e.g. "Dr. Bark")
+@export var unit_class: String = "Recruit"
 @export var faction: String = "Player"  # "Player", "Enemy"
 @export var unit_portrait: Texture2D
 
@@ -158,7 +158,7 @@ func _setup_visuals():
 
 # --- CLASS & STATS ---
 func apply_class_stats(cls_name: String):
-	corgi_class = cls_name
+	unit_class = cls_name
 	abilities.clear()
 	# Grant Universal Hack Ability
 	abilities.append(load("res://scripts/abilities/HackAbility.gd").new())

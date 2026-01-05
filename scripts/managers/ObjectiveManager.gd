@@ -119,6 +119,7 @@ func register_hack(success: bool):
 	if success:
 		current_hacks += 1
 		print_objective_status()
+		_emit_update()
 	else:
 		print("ObjectiveManager: Hack Failed! Reinforcements incoming!")
 
@@ -158,6 +159,7 @@ func handle_interaction(interactor, target):
 			current_retrievals += 1
 			print(interactor.name, " secured a Treat Bag! Progress: ", current_retrievals, "/", target_count)
 			SignalBus.on_request_floating_text.emit(target.position + Vector3(0,2,0), "SECURED " + str(current_retrievals) + "/" + str(target_count), Color.CYAN)
+			_emit_update()
 			
 			# Clean up object
 			if is_instance_valid(target):
@@ -184,6 +186,7 @@ func handle_interaction(interactor, target):
 				rescue_win_turn = current_turn + 1
 				print(interactor.name, " secured the human! Hold until Turn ", rescue_win_turn)
 				SignalBus.on_request_floating_text.emit(target.position + Vector3(0,2,0), "SECURED! DEFEND!", Color.GREEN)
+				_emit_update()
 			else:
 				print("Already secured target.")
 			# Do NOT queue_free. Must survive.
@@ -205,3 +208,40 @@ func mission_failed(reason: String):
 	else:
 		# Fallback for testing without GameManager
 		SignalBus.on_mission_ended.emit(false, 0)
+
+
+# UI Helper
+signal objective_updated(text: String)
+
+func get_objective_text() -> String:
+	match current_mission_type:
+		MissionType.DEATHMATCH:
+			var enemies = 0
+			var nodes = get_tree().get_nodes_in_group("Units")
+			for u in nodes:
+				if is_instance_valid(u) and "faction" in u and u.faction == "Enemy" and u.current_hp > 0:
+					enemies += 1
+			return "Enemies Left: " + str(enemies)
+			
+		MissionType.HACKER:
+			return "Hacks: " + str(current_hacks) + "/" + str(target_count)
+			
+		MissionType.RETRIEVE:
+			return "Bags: " + str(current_retrievals) + "/" + str(target_count)
+			
+		MissionType.DEFENSE:
+			var remaining = turn_limit - current_turn
+			if remaining < 0: remaining = 0
+			return "Survive: " + str(remaining) + " Turns"
+			
+		MissionType.RESCUE:
+			if rescue_secured:
+				return "EXTRACT! Hold: " + str(max(0, rescue_win_turn - current_turn))
+			else:
+				return "Rescue the Human!"
+	
+	return "Objective Unknown"
+
+
+func _emit_update():
+	objective_updated.emit(get_objective_text())

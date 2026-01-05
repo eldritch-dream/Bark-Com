@@ -15,14 +15,7 @@ var is_rotating = false
 func _ready():
 	current = true
 
-	# Create Debug UI
-	var canvas = CanvasLayer.new()
-	add_child(canvas)
-
-	debug_label = Label.new()
-	debug_label.position = Vector2(10, 10)
-	debug_label.modulate = Color.YELLOW
-	canvas.add_child(debug_label)
+	# Debug UI Removed by Request
 
 	print("Camera Controls:")
 	print(" - WASD / Arrows: Pan")
@@ -62,6 +55,6 @@ func _on_rotation_request(direction: int):
 	rotate_y(direction * speed * delta)
 
 
+
 func _process(_delta):
-	# Only update Debug UI
-	debug_label.text = "Pos: %v\nRot (Deg): %v\nSize: %.1f" % [position, rotation_degrees, size]
+	pass

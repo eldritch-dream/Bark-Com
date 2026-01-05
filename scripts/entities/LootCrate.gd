@@ -7,8 +7,7 @@ class_name LootCrate
 
 func _ready():
 	super._ready()
-	character_name = "Supply Crate"
-	character_name = "Supply Crate"
+	unit_name = "Supply Crate"
 	faction = "Neutral"
 	can_be_targeted = false
 	add_to_group("Interactive") # Required for Main.gd interaction check

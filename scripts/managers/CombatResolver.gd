@@ -342,8 +342,8 @@ static func execute_attack(
 
 			# KILL TRACKING for Nemesis System
 			var dead_name = target.name
-			if "character_name" in target and target.character_name != "":
-				dead_name = target.character_name
+			if "unit_name" in target and target.unit_name != "":
+				dead_name = target.unit_name
 
 			if attacker.faction == "Enemy" and targ_faction == "Player":
 				if "victim_log" in attacker:

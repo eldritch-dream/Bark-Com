@@ -29,7 +29,7 @@ func _setup_viewport():
 
 	# Camera
 	camera = Camera3D.new()
-	camera.position = Vector3(0, 0.8, 2.0)  # Zoomed out (was 1.2)
+	camera.position = Vector3(0, 0.8, 1.2)  # Zoomed in (tuned to 1.2)
 	# camera.look_at(Vector3(0, 0.5, 0)) # Error: Not in tree
 	# Manual rotation: Looking slightly down and center
 	camera.rotation_degrees = Vector3(-15, 0, 0)

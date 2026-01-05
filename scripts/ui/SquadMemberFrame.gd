@@ -39,15 +39,18 @@ func _setup_ui():
 	vbox.add_child(top)
 
 	var name_l = Label.new()
-	name_l.text = unit_ref.character_name if unit_ref.character_name else unit_ref.name
+	name_l.text = unit_ref.unit_name if unit_ref.unit_name else unit_ref.name
 	# name_l.clip_text = true # Disable clipping to show full name
 	# Or set min scale?
 	name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_l.add_theme_font_size_override("font_size", 16)
 	top.add_child(name_l)
 
 	ap_label = Label.new()
 	ap_label.text = "AP: 0"
+	ap_label.add_theme_font_size_override("font_size", 16)
+	ap_label.modulate = Color(0.7, 1.0, 1.0) # Cyan tint for visibility
 	top.add_child(ap_label)
 
 	# Middle: Portrait (Use UnitPortraitConfig)

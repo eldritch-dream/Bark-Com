@@ -448,7 +448,7 @@ func _on_unit_died(unit):
 		if GameManager:
 			var data = {
 				"name": unit.name,
-				"class": unit.corgi_class if "corgi_class" in unit else "Recruit",
+				"class": unit.unit_class if "unit_class" in unit else "Recruit",
 				"level": unit.level if "level" in unit else 1,
 				"unlocked_talents": unit.unlocked_talents if "unlocked_talents" in unit else []
 			}

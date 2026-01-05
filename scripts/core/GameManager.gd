@@ -238,19 +238,19 @@ func _generate_daily_batch():
 
 
 func _add_recruit(
-	recruit_name: String, level: int, corgi_class: String = "Recruit", starting_xp: int = 0
+	recruit_name: String, level: int, unit_class: String = "Recruit", starting_xp: int = 0
 ):
 	var new_unit = {
 		"name": recruit_name,
 		"level": level,
-		"class": corgi_class,
+		"class": unit_class,
 		"xp": starting_xp,
 		"max_hp": 10,
 		"status": "Ready",  # Ready, Resting, Injured
 		"items": [],  # Can hold Consumables
 		"unlocked_talents": [],  # Array of Talent/Perk IDs (String)
 		"primary_weapon": null,  # Will hold WeaponData Resource
-		"sanity": 100  # Add Sanity
+		"sanity": 100,  # Add Sanity
 	}
 	roster.append(new_unit)
 	SignalBus.on_unit_recruited.emit(new_unit)
@@ -844,6 +844,24 @@ func _process_mission_bonds(survivors: Array):
 			var u1 = survivors[i]["name"]
 			var u2 = survivors[j]["name"]
 			modify_bond(u1, u2, 1)  # +1 for surviving together
+
+
+func get_active_bonds_for_unit(unit_name: String) -> Array:
+	var bonds = []
+	for key in relationships.keys():
+		if key.contains(unit_name):
+			# Extract the OTHER name
+			var parts = key.split("_")
+			var partner = ""
+			if parts[0] == unit_name: partner = parts[1]
+			else: partner = parts[0]
+			
+			var score = relationships[key]
+			var lvl = get_bond_level_from_score(score)
+			
+			if lvl > 0:
+				bonds.append({"partner_name": partner, "level": lvl, "score": score})
+	return bonds
 
 
 func start_mission(mission: MissionData, custom_squad: Array = []):

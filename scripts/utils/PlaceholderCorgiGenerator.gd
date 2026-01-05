@@ -12,7 +12,7 @@ static func generate_corgi(parent: Node3D) -> Dictionary:
 
 	# Materials
 	var fur_mat = StandardMaterial3D.new()
-	fur_mat.albedo_color = Color("Peru")  # Classic Corgi Orange
+	fur_mat.albedo_color = Color(0.8, 0.52, 0.25)  # Peru-ish Color
 
 	var white_mat = StandardMaterial3D.new()
 	white_mat.albedo_color = Color.WHITE

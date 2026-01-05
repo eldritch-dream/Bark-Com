@@ -1,6 +1,7 @@
 extends Node3D
 
 var main_camera: Camera3D
+var selection_marker: Node3D
 
 # Managers
 var turn_manager
@@ -19,6 +20,8 @@ var active_mission_data: Resource = null  # Supports MissionData (Legacy) or Mis
 
 # Systems
 var mission_manager: MissionManager
+var objective_manager: ObjectiveManager
+
 
 var grid_manager
 
@@ -73,6 +76,24 @@ func _ready():
 	if camera_script:
 		var cam_controller = camera_script.new(main_camera)
 		add_child(cam_controller)
+
+	# Selection Marker (Crystal)
+	var marker_mesh = MeshInstance3D.new()
+	marker_mesh.mesh = SphereMesh.new()
+	marker_mesh.mesh.radius = 0.22
+	marker_mesh.mesh.height = 0.44
+	
+	var marker_mat = StandardMaterial3D.new()
+	marker_mat.albedo_color = Color.CYAN
+	marker_mat.emission_enabled = true
+	marker_mat.emission = Color.CYAN
+	marker_mat.emission_energy_multiplier = 2.0
+	marker_mesh.material_override = marker_mat
+	
+	selection_marker = marker_mesh # Assign to wrapper or direct? Direct for now.
+	selection_marker.set_script(load("res://scripts/ui/BouncingMarker.gd"))
+	add_child(selection_marker)
+	selection_marker.visible = false
 
 	var light = DirectionalLight3D.new()
 	add_child(light)
@@ -220,15 +241,43 @@ func _on_camera_focus_requested(target_pos: Vector3):
 
 
 func _on_turn_changed(phase_name, _turn_num):
+	# 1. Refresh UI
+	if turn_manager and game_ui:
+		game_ui.update_squad_overlay(turn_manager.units)
+	
+	if objective_manager and game_ui:
+		game_ui.update_objectives(objective_manager.get_objective_text())
+		var status = objective_manager.check_status(turn_manager.units, _turn_num)
+		if status == "WIN":
+			_on_mission_ended_handler(true)
+			return
+		elif status == "LOSS":
+			_on_mission_ended_handler(false)
+			return
+
 	if phase_name == "PLAYER PHASE":
+		game_ui.log_message("Your Turn")
+		current_input_state = InputState.SELECTING
+		
+		# Update Fog
 		if fog_manager and turn_manager:
-			# 2. Update Mask (Reveals logic + visuals)
 			fog_manager.update_mask(turn_manager.units)
 
-	# BASE DEFENSE WAVE LOGIC
-	# Now handled by MissionManager via turn signals?
-	# MissionManager listens to turn/kill signals. Main doesn't need to drive this.
-	pass
+		# Auto-Select First Unit
+		var first_unit = null
+		if turn_manager:
+			for u in turn_manager.units:
+				if is_instance_valid(u) and u.get("faction") == "Player" and u.current_hp > 0:
+					first_unit = u
+					break
+		
+		if first_unit:
+			_set_selected_unit(first_unit)
+
+	else:
+		# Enemy Phase
+		current_input_state = InputState.CINEMATIC
+
 
 func _on_mission_completed():
 	print("Main: _on_mission_completed triggered. Syncing Roster...")
@@ -250,7 +299,7 @@ func _on_mission_completed():
 			and unit.faction == "Player"
 		):
 			var data = {
-				"name": unit.character_name if "character_name" in unit and unit.character_name != "" else unit.name,
+				"name": unit.unit_name if "unit_name" in unit and unit.unit_name != "" else unit.name,
 				"hp": unit.current_hp,
 				"sanity": unit.current_sanity,
 				"xp": unit.current_xp, # Was unit.xp, verify check
@@ -298,7 +347,7 @@ func _on_mission_completed():
 		_end_mission(true)
 var _mission_end_processed = false
 
-func _on_mission_ended_handler(victory: bool, _rewards: int):
+func _on_mission_ended_handler(victory: bool):
 	if _mission_end_processed:
 		return
 	_mission_end_processed = true
@@ -523,7 +572,7 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 
 		# Apply Data
 		unit.name = data["name"]
-		unit.character_name = data["name"]  # Store displayed name (persisted)
+		unit.unit_name = data["name"]  # Store displayed name (persisted)
 		var cls = data.get("class", "Recruit")
 		unit.apply_class_stats(cls)
 
@@ -574,9 +623,14 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 						unit.inventory.append(item_res)
 
 	# Select First Unit
-	# 1c. Select First Unit
-	# Postpone selection until GameUI is ready (end of function)
-	pass
+	# Select First Unit
+	if spawned_units.size() > 0:
+		for u in spawned_units:
+			if is_instance_valid(u) and u.get("faction") == "Player":
+				_set_selected_unit(u)
+				if game_ui:
+					game_ui.select_unit(u)
+				break
 
 	# Spawn Enemies (Point Buy System)
 	# Spawn Enemies (Point Buy System)
@@ -639,13 +693,18 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 			if not input_mgr.on_cancel_command.is_connected(_clear_targeting):
 				input_mgr.on_cancel_command.connect(_clear_targeting)
 
+
 		if input_mgr.has_signal("on_mouse_hover"):
 			if not input_mgr.on_mouse_hover.is_connected(_on_mouse_hover):
 				input_mgr.on_mouse_hover.connect(_on_mouse_hover)
 
+		if input_mgr.has_signal("on_pause_toggle"):
+			if not input_mgr.on_pause_toggle.is_connected(_on_pause_toggle):
+				input_mgr.on_pause_toggle.connect(_on_pause_toggle)
+
 
 	# 6. Setup Objectives
-	var objective_manager = load("res://scripts/managers/ObjectiveManager.gd").new()
+	objective_manager = load("res://scripts/managers/ObjectiveManager.gd").new()
 	objective_manager.name = "ObjectiveManager"
 	add_child(objective_manager)
 
@@ -658,6 +717,9 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 	else:
 		mission_type = randi() % 3
 	objective_manager.initialize(mission_type, turn_manager, obj_count)
+	
+	if objective_manager.has_signal("objective_updated"):
+		objective_manager.objective_updated.connect(func(t): game_ui.update_objectives(t))
 
 	# Spawn Objective Targets if needed (ONLY IF NOT BASE DEFENSE)
 	var all_units = spawned_units.duplicate()
@@ -711,7 +773,10 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 
 	# INITIALIZE SQUAD UI
 	print("Main: Initializing Squad List with ", spawned_units.size(), " units.")
-	game_ui.initialize_squad_list(spawned_units)
+	game_ui.update_squad_overlay(spawned_units)
+	# Also update Objective UI
+	if objective_manager:
+		game_ui.update_objectives(objective_manager.get_objective_text())
 
 	# Initial Vision Update
 	vision_manager.update_vision(all_units)
@@ -1272,6 +1337,12 @@ func _on_tile_clicked(grid_pos: Vector2, button_index: int):
 			_clear_targeting()
 
 	elif current_input_state == InputState.MOVING:
+		# Quality of Life: If clicking another friendly unit, switch selection immediately
+		var target_unit = _get_unit_at_grid(grid_pos)
+		if target_unit and "faction" in target_unit and target_unit.faction == "Player" and target_unit != selected_unit:
+			_handle_unit_selection_from_ui(target_unit)
+			return
+
 		if selected_unit:
 			_process_move_or_interact(grid_pos)
 			_clear_targeting()
@@ -1288,7 +1359,7 @@ func _on_tile_clicked(grid_pos: Vector2, button_index: int):
 		# Select Unit (Only Player or Enemy, ignore Props/Crates)
 		if target_unit and "faction" in target_unit and target_unit.faction != "Neutral":
 			SignalBus.on_ui_select_unit.emit(target_unit)
-			selected_unit = target_unit
+			_set_selected_unit(target_unit)
 		# Context Move
 		# elif selected_unit and is_instance_valid(selected_unit):
 			# Allow click-to-move in Selection state (RTS style)
@@ -1389,7 +1460,18 @@ func _try_interact():
 	print("Nothing in range to interact with!")
 
 
+func _on_pause_toggle():
+	# If in Targeting mode, Cancel first?
+	if current_input_state == InputState.TARGETING or current_input_state == InputState.ABILITY_TARGETING:
+		_clear_targeting()
+	else:
+		# Toggle Menu
+		if game_ui and game_ui.has_method("toggle_pause_menu"):
+			game_ui.toggle_pause_menu()
+
+
 func _on_debug_action(action: String):
+
 	print("DEBUG ACTION: ", action)
 	if action == "ForceWin":
 		print("DEBUG: Force WIN")
@@ -1627,14 +1709,35 @@ func play_intro_sequence(target_unit):
 	# target_unit.play_anim("Taunt")
 
 
-func _handle_unit_selection_from_ui(unit):
-	if not is_instance_valid(unit):
-		return
+func _set_selected_unit(unit):
 	if selected_unit == unit:
 		return
 
-	print("Main: UI Selected Unit -> ", unit.name)
 	selected_unit = unit
+	
+	if selected_unit and is_instance_valid(selected_unit):
+		# Update Marker
+		if selection_marker:
+			selection_marker.target_node = selected_unit
+			selection_marker.visible = true
+			
+		print("Main: Selected ", unit.name)
+	else:
+		if selection_marker:
+			selection_marker.target_node = null
+			selection_marker.visible = false
+
+
+func _handle_unit_selection_from_ui(unit):
+	if not is_instance_valid(unit):
+		return
+
+	# Use centralized setter
+	_set_selected_unit(unit)
+	
+	# FORCE UI SYNC
+	SignalBus.on_ui_select_unit.emit(unit)
+
 	# Reset state
 	current_input_state = InputState.SELECTING
 
@@ -1807,5 +1910,5 @@ func _on_unit_death(unit):
 	if players_alive == 0:
 		print("Main: LAST SQUAD MEMBER FALLEN!")
 		# Iron Dog check happens in GameManager on mission complete, but we need to trigger mission end.
-		# If objective was "Survive", we failed.
-		# The standard check handles empty squad return.
+		_on_mission_ended_handler(false)
+		return
