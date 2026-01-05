@@ -180,21 +180,27 @@ func _process_command(cmd_str: String):
 		# --- HIDDEN COMMANDS ---
 		"normal":
 			if GameManager:
-				GameManager.settings["shop_skin"] = "default"
+				GameManager.settings["mascot_style"] = 0
 				GameManager.save_game()
-				println("Quartermaster strictness protocol engaged.", Color.LIGHT_SLATE_GRAY)
+				println("Mascot Protocol: Standard Regulations.", Color.LIGHT_SLATE_GRAY)
 				SignalBus.on_skin_changed.emit()
 		"busty":
 			if GameManager:
-				GameManager.settings["shop_skin"] = "sexy"
+				GameManager.settings["mascot_style"] = 1
 				GameManager.save_game()
-				println("Quartermaster morale boost initiated.", Color.PINK)
+				println("Mascot Protocol: Morale Boost Initiated.", Color.PINK)
 				SignalBus.on_skin_changed.emit()
 		"bustier":
 			if GameManager:
-				GameManager.settings["shop_skin"] = "ultra"
+				GameManager.settings["mascot_style"] = 2
 				GameManager.save_game()
-				println("Quartermaster MAXIMUM OVERDRIVE.", Color.MAGENTA)
+				println("Mascot Protocol: MAXIMUM OVERDRIVE.", Color.MAGENTA)
+				SignalBus.on_skin_changed.emit()
+		"bustiest":
+			if GameManager:
+				GameManager.settings["mascot_style"] = 3
+				GameManager.save_game()
+				println("Mascot Protocol: CRITICAL MASS REACHED.", Color.VIOLET)
 				SignalBus.on_skin_changed.emit()
 		"rich":
 			if GameManager:

@@ -180,6 +180,115 @@ func _show_hub():
 	
 	# 6. STASH (Bottom Left Corner) - Lockers/Floor
 	create_zone.call("STASH", [0.02, 0.70, 0.20, 0.20], _show_inventory)
+	
+	_hide_mascot()
+
+
+var mascot_rect: TextureRect
+
+func _update_mascot(base_name: String):
+	if not mascot_rect:
+		mascot_rect = TextureRect.new()
+		mascot_rect.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		mascot_rect.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		mascot_rect.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		mascot_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mascot_rect.expand_mode = TextureRect.EXPAND_KEEP_SIZE
+		mascot_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+		# Scale down if too big? Or rely on asset size.
+		mascot_rect.scale = Vector2(0.8, 0.8) 
+		mascot_rect.position = Vector2(-20, -20) # Offset relative to anchor
+		
+		# Add to UI Container but ABOVE content area
+		ui_container.add_child(mascot_rect)
+	
+	# Determine Variant
+	var style = 0
+	if game_manager and game_manager.settings.has("mascot_style"):
+		style = game_manager.settings["mascot_style"]
+		
+	var suffix = "_normal"
+	match style:
+		1: suffix = "_busty"
+		2: suffix = "_bustier"
+		3: suffix = "_bustiest"
+	
+	var suffixes = [".png", ".jpg", ".jpeg"]
+	var tex = null
+	var final_path = ""
+	
+	for ext in suffixes:
+		var try_path = "res://assets/ui/" + base_name + suffix + ext
+		if ResourceLoader.exists(try_path):
+			tex = load(try_path)
+			final_path = try_path
+			break
+			
+	if not tex:
+		# Manual check for file existence via FileAccess if ResourceLoader fails
+		# (Sometimes new files aren't in resource DB yet)
+		for ext in suffixes:
+			var try_path = "res://assets/ui/" + base_name + suffix + ext
+			if FileAccess.file_exists(try_path):
+				var img = Image.new()
+				var err = img.load(try_path)
+				if err == OK:
+					tex = ImageTexture.create_from_image(img)
+					final_path = try_path
+					print("DEBUG_MASCOT: Loaded via ImageTexture: ", final_path)
+					break
+	
+	if tex:
+		mascot_rect.texture = tex
+		mascot_rect.visible = true
+		
+		# Reset anchor manually since sizing might change
+		mascot_rect.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		mascot_rect.offset_right = 0
+		mascot_rect.offset_bottom = 0
+		print("DEBUG_MASCOT: Loaded successfully: ", final_path)
+	else:
+		print("BaseScene: Mascot texture not found for base: ", base_name, " suffix: ", suffix)
+		mascot_rect.visible = false
+
+func _get_mascot_texture(base_name: String) -> Texture2D:
+	# Determine Variant
+	var style = 0
+	if game_manager and game_manager.settings.has("mascot_style"):
+		style = game_manager.settings["mascot_style"]
+		
+	var suffix = "_normal"
+	match style:
+		1: suffix = "_busty"
+		2: suffix = "_bustier"
+		3: suffix = "_bustiest"
+	
+	var suffixes = [".png", ".jpg", ".jpeg"]
+	var tex = null
+	
+	for ext in suffixes:
+		var try_path = "res://assets/ui/" + base_name + suffix + ext
+		if ResourceLoader.exists(try_path):
+			tex = load(try_path)
+			if tex: return tex
+			
+	# Manual check
+	for ext in suffixes:
+		var try_path = "res://assets/ui/" + base_name + suffix + ext
+		if FileAccess.file_exists(try_path):
+			var img = Image.new()
+			var err = img.load(try_path)
+			if err == OK:
+				tex = ImageTexture.create_from_image(img)
+				print("DEBUG_MASCOT: Loaded via ImageTexture: ", try_path)
+				return tex
+				
+	print("BaseScene: Mascot texture not found for base: ", base_name, " suffix: ", suffix)
+	return null
+
+func _hide_mascot():
+	if mascot_rect:
+		mascot_rect.visible = false
 
 
 func _show_welcome_message():
@@ -355,11 +464,29 @@ func _on_unit_recruited(unit_data: Dictionary):
 
 
 func _on_skin_changed_refresh():
-	# Check if Shop is open (look for ShopRoot)
+	print("DEBUG: _on_skin_changed_refresh start. content_area children: ", content_area.get_child_count())
+	# Check active view
 	for child in content_area.get_children():
-		if child.name == "ShopRoot":
-			_show_shop()
-			return
+		print("DEBUG: Checking child: ", child.name, " Meta: ", child.get_meta("ui_context") if child.has_meta("ui_context") else "None")
+		
+		# Metadata check is robust against renaming
+		if child.has_meta("ui_context"):
+			var ctx = child.get_meta("ui_context")
+			if ctx == "shop":
+				_show_shop()
+				return
+			elif ctx == "medbay":
+				_show_therapy()
+				return
+			elif ctx == "barracks":
+				_show_roster()
+				return
+			elif ctx == "deployment":
+				_show_mission_control()
+				return
+			elif ctx == "memorial":
+				_show_memorial()
+				return
 	
 	# Also refresh Roster if open (some users might check there?)
 	# We don't have a specific name for Roster root, but we can assume if not shop, do nothing?
@@ -451,16 +578,53 @@ func _start_mission():
 
 func _show_roster():
 	_clear_content()
+	_hide_mascot()
+	
+	# Root
+	var root = HBoxContainer.new()
+	root.name = "BarracksRoot"
+	root.set_meta("ui_context", "barracks")
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_area.add_child(root)
+	
+	# --- LEFT: Mascot (Drill Sergeant) ---
+	var portrait_container = PanelContainer.new()
+	portrait_container.custom_minimum_size = Vector2(400, 0)
+	portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(portrait_container)
+	
+	var portrait_rect = TextureRect.new()
+	portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	portrait_container.add_child(portrait_rect)
+	
+	var tex = _get_mascot_texture("corgi_sarge")
+	if tex:
+		portrait_rect.texture = tex
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size.x = 20
+	root.add_child(spacer)
+	
+	# --- RIGHT: Content ---
+	var right_col = VBoxContainer.new()
+	right_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(right_col)
 	
 	var title = Label.new()
 	title.text = "BARRACKS (The Bed)"
 	title.add_theme_font_size_override("font_size", 24)
-	content_area.add_child(title)
+	right_col.add_child(title)
 
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_area.add_child(scroll)
+	right_col.add_child(scroll)
 
 	var grid = GridContainer.new()
 	grid.columns = 2
@@ -503,7 +667,7 @@ func _show_roster():
 			actions.add_child(promo)
 
 	# RECRUITMENT BUTTON
-	content_area.add_child(HSeparator.new())
+	right_col.add_child(HSeparator.new())
 	var recruit_btn = Button.new()
 	var cost = 50
 	if game_manager: cost = game_manager.RECRUIT_COST
@@ -511,7 +675,7 @@ func _show_roster():
 	recruit_btn.custom_minimum_size = Vector2(200, 50)
 	recruit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	recruit_btn.pressed.connect(_on_recruit_pressed)
-	content_area.add_child(recruit_btn)
+	right_col.add_child(recruit_btn)
 
 
 func _on_recruit_pressed():
@@ -539,6 +703,7 @@ func _show_shop():
 	# Root HBox for Side-by-Side Layout
 	var shop_root = HBoxContainer.new()
 	shop_root.name = "ShopRoot"
+	shop_root.set_meta("ui_context", "shop")
 # ... (rest is fine)
 
 	shop_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -548,7 +713,7 @@ func _show_shop():
 	# --- LEFT: Large Portrait ---
 	var portrait_container = PanelContainer.new()
 	# Fixed width container
-	portrait_container.custom_minimum_size = Vector2(350, 0)
+	portrait_container.custom_minimum_size = Vector2(500, 0)
 	portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shop_root.add_child(portrait_container)
 	
@@ -561,41 +726,21 @@ func _show_shop():
 	portrait_container.add_child(portrait_rect)
 	
 	# Load Portrait Variant
-	var art_path = "res://assets/images/QuarterMaster_v3.jpg"
-	var skin = game_manager.settings.get("shop_skin", "default")
+	# Load Portrait Variant
+	# Default = QuarterMaster_v3.jpg (Normal)
+	# Busty = QuarterMaster_v4.jpg (Sexy)
+	# Bustier = QuarterMaster_v7.jpg (Ultra)
+	# Bustiest = corgi_quartermaster_bustiest
 	
-	if skin == "sexy":
-		art_path = "res://assets/images/QuarterMaster_v4.jpg"
-	elif skin == "ultra":
-		art_path = "res://assets/images/QuarterMaster_v7.jpg"
-	var tex = null
-	
-	if ResourceLoader.exists(art_path):
-		tex = load(art_path)
-		
-	if not tex:
-		# Fallback: Load from disk (e.g. if not imported yet)
-		var img = Image.new()
-		var abs_path = ProjectSettings.globalize_path(art_path)
-		print("DEBUG: Loading portrait from: ", abs_path)
-		var err = img.load(abs_path)
-		if err == OK:
-			tex = ImageTexture.create_from_image(img)
-		else:
-			print("DEBUG: Failed to load image. Error: ", err)
-			
+	# Use standard helper
+	var tex = _get_mascot_texture("corgi_quartermaster")
 	if tex:
 		portrait_rect.texture = tex
 	else:
-		# Fallback debug
-		var debug_rect = ColorRect.new()
-		debug_rect.color = Color.DARK_SLATE_GRAY
-		# Ensure it has size
-		debug_rect.custom_minimum_size = Vector2(350, 500)
-		portrait_container.add_child(debug_rect)
-		var debug_lbl = Label.new()
-		debug_lbl.text = "IMG LOAD FAIL"
-		portrait_container.add_child(debug_lbl)
+		var lbl = Label.new()
+		lbl.text = "NO IMAGE"
+		portrait_container.add_child(lbl)
+		
 
 	# Spacer
 	var spacer = Control.new()
@@ -905,20 +1050,61 @@ func _apply_promotion(corgi_data: Dictionary, talent: TalentNode):
 func _show_therapy():
 	print("DEBUG: _show_therapy called")
 	_clear_content()
-	# output_label.visible = false REMOVED
+	_hide_mascot() # Hide global overlay if any
 
-	var h = HBoxContainer.new()
-	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Ensure it expands vertically
-	content_area.add_child(h)
+	# Root HBox for Side-by-Side Layout
+	var root = HBoxContainer.new()
+	root.name = "MedBayRoot"
+	root.set_meta("ui_context", "medbay")
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_area.add_child(root)
 
-	print("DEBUG: Therapy HBox added. Roster size: ", GameManager.roster.size())
+	# --- LEFT: Mascot Portrait ---
+	var portrait_container = PanelContainer.new()
+	portrait_container.custom_minimum_size = Vector2(500, 0) # Wider for various aspect ratios
+	portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(portrait_container)
+	
+	var portrait_rect = TextureRect.new()
+	portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	portrait_container.add_child(portrait_rect)
+	
+	var tex = _get_mascot_texture("corgi_nurse")
+	if tex:
+		portrait_rect.texture = tex
+	else:
+		var lbl = Label.new()
+		lbl.text = "NO IMAGE"
+		portrait_container.add_child(lbl)
+
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size.x = 20
+	root.add_child(spacer)
+
+	# --- RIGHT: Content ---
+	var right_col = VBoxContainer.new()
+	right_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(right_col)
+
+	var title = Label.new()
+	title.text = "MED BAY (The Cone of Shame)"
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color.LIGHT_CORAL)
+	right_col.add_child(title)
+	
+	right_col.add_child(HSeparator.new())
 
 	# List of Wounded/Insane Units
 	var list_panel = PanelContainer.new()
 	list_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	h.add_child(list_panel)
+	right_col.add_child(list_panel)
 
 	var scroll = ScrollContainer.new()
 	list_panel.add_child(scroll)
@@ -928,13 +1114,13 @@ func _show_therapy():
 	scroll.add_child(vbox)
 
 	var label = Label.new()
-	label.text = "PATIENTS (Sanity < 100)"
+	label.text = "PATIENTS (Sanity < 100 or Injured)"
 	vbox.add_child(label)
 
 	for unit_data in GameManager.roster:
 		var san = int(unit_data.get("sanity", 100))
 		var max_san = int(unit_data.get("max_sanity", 100))
-
+		
 		# Styled Panel
 		var panel = _create_styled_panel_for_list()
 		vbox.add_child(panel)
@@ -1002,13 +1188,49 @@ func _treat_unit(unit_data):
 
 func _show_mission_control():
 	_clear_content()
-	# input_field.visible = false REMOVED
+	_hide_mascot()
+	
+	# Root
+	var root = HBoxContainer.new()
+	root.name = "DeploymentRoot"
+	root.set_meta("ui_context", "deployment")
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_area.add_child(root)
+	
+	# --- LEFT: Mascot (Tactical Officer) ---
+	var portrait_container = PanelContainer.new()
+	portrait_container.custom_minimum_size = Vector2(400, 0)
+	portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(portrait_container)
+	
+	var portrait_rect = TextureRect.new()
+	portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	portrait_container.add_child(portrait_rect)
+	
+	var tex = _get_mascot_texture("corgi_tactical")
+	if tex:
+		portrait_rect.texture = tex
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size.x = 20
+	root.add_child(spacer)
+	
+	# --- RIGHT: Content ---
+	var right_col = VBoxContainer.new()
+	right_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(right_col)
 
 	var control_script = load("res://scripts/ui/MissionControlTab.gd")
 	if control_script:
 		var tab = control_script.new()
 		tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		content_area.add_child(tab)
+		right_col.add_child(tab)
 		tab.initialize(game_manager)
 
 
@@ -1187,20 +1409,56 @@ func _update_header():
 # --- MEMORIAL WALL ---
 func _show_memorial():
 	_clear_content()
-	# output_label.visible = false REMOVED
+	_hide_mascot()
+	
+	# Root
+	var root = HBoxContainer.new()
+	root.name = "MemorialRoot"
+	root.set_meta("ui_context", "memorial")
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_area.add_child(root)
+	
+	# --- LEFT: Mascot (Nun) ---
+	var portrait_container = PanelContainer.new()
+	portrait_container.custom_minimum_size = Vector2(400, 0)
+	portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(portrait_container)
+	
+	var portrait_rect = TextureRect.new()
+	portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	portrait_container.add_child(portrait_rect)
+	
+	var tex = _get_mascot_texture("corgi_nun")
+	if tex:
+		portrait_rect.texture = tex
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size.x = 20
+	root.add_child(spacer)
+	
+	# --- RIGHT: Content ---
+	var right_col = VBoxContainer.new()
+	right_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(right_col)
 
 	var title = Label.new()
 	title.text = "THE MEMORIAL WALL"
 	title.add_theme_font_size_override("font_size", 28)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content_area.add_child(title)
+	right_col.add_child(title)
 
-	content_area.add_child(HSeparator.new())
+	right_col.add_child(HSeparator.new())
 
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_area.add_child(scroll)
+	right_col.add_child(scroll)
 
 	var list = VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
