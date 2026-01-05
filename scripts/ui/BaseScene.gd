@@ -66,19 +66,120 @@ func _load_initial_state():
 	# Initial UI Update
 	_on_kibble_changed(game_manager.kibble)
 
-	# Auto-Load or Help
+	# Auto-Load or Hub
 	if not game_manager.session_initialized and game_manager.has_save_file():
 		game_manager.load_game()
 		game_manager.session_initialized = true
-		_log("--- SESSION RESTORED FROM AUTO-SAVE ---")
-		_log("Welcome back, Commander.")
-		_log("(Type 'help' for commands)")
+		_log("Session Restored.")
+		_show_hub() # Default to Hub
 	elif game_manager.session_initialized:
-		_log("--- READY FOR DEPLOYMENT ---")
+		_show_hub()
 	else:
 		game_manager.new_game()
-		_show_welcome_message()
+		_show_hub()
 		_log("New Campaign Initialized.")
+
+func _show_hub():
+	_clear_content()
+	
+	# Main Hub Container
+	var hub = Control.new()
+	hub.name = "BaseHub"
+	hub.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_area.add_child(hub)
+	
+	# Background Image
+	var bg_rect = TextureRect.new()
+	bg_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	# Attempt to load generated art
+	var icon_path = "res://assets/ui/corgi_base_hub_v1.jpg"
+	var bg_tex = load(icon_path)
+	
+	if not bg_tex:
+		print("BaseScene: Standard load failed for ", icon_path, ". Trying direct load.")
+		var img = Image.new()
+		var err = img.load(icon_path)
+		if err == OK:
+			bg_tex = ImageTexture.create_from_image(img)
+			print("BaseScene: Direct load successful.")
+		else:
+			print("BaseScene: Direct load failed with error ", err)
+	
+	if bg_tex:
+		bg_rect.texture = bg_tex
+		hub.add_child(bg_rect)
+	else:
+		print("BaseScene: FAILED to load Hub Background due to format/path issue.")
+		# Fallback Color
+		var col_rect = ColorRect.new()
+		col_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		col_rect.color = Color(0.1, 0.1, 0.1)
+		hub.add_child(col_rect)
+	
+	# If we successfully loaded a texture (simulated for now by user moving it later)
+	# We'd add bg_rect.
+	# For this step, I will add the Logic for the buttons assuming the layout matches the description.
+	
+	# --- INVISIBLE CLICK ZONES (With Hover Highlights) ---
+	var create_zone = func(name, rect, callback):
+		var btn = Button.new()
+		# Transparent Normal
+		var style_empty = StyleBoxEmpty.new()
+		btn.add_theme_stylebox_override("normal", style_empty)
+		btn.add_theme_stylebox_override("pressed", style_empty)
+		btn.add_theme_stylebox_override("focus", style_empty)
+		# Semi-transparent White on Hover
+		var style_hover = StyleBoxFlat.new()
+		style_hover.bg_color = Color(1, 1, 1, 0.1)
+		style_hover.border_width_left = 2
+		style_hover.border_width_top = 2
+		style_hover.border_width_right = 2
+		style_hover.border_width_bottom = 2
+		style_hover.border_color = Color(1, 1, 0.5, 0.5)
+		btn.add_theme_stylebox_override("hover", style_hover)
+		
+		hub.add_child(btn)
+		
+		# Layout
+		btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		btn.anchor_left = rect[0]
+		btn.anchor_top = rect[1]
+		btn.anchor_right = rect[0] + rect[2]
+		btn.anchor_bottom = rect[1] + rect[3]
+		btn.pressed.connect(callback)
+		
+		# Label (Centered in zone)
+		var lbl = Label.new()
+		lbl.text = name
+		lbl.add_theme_font_size_override("font_size", 24)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		lbl.modulate = Color(1, 1, 1, 0.7)
+		btn.add_child(lbl)
+		
+		return btn
+
+	# 1. BARRACKS (Left Bunks) - Tightened to beds/lockers
+	create_zone.call("BARRACKS", [0.02, 0.1, 0.30, 0.6], _show_roster)
+	
+	# 2. QUARTERMASTER (Right Cage) - Tightened to cage proper
+	create_zone.call("QUARTERMASTER", [0.72, 0.15, 0.26, 0.6], _show_shop)
+	
+	# 3. MISSION CONTROL (Center Table) - Moved DOWN to cover table/dogs
+	create_zone.call("DEPLOY", [0.30, 0.55, 0.40, 0.35], _show_mission_control)
+	
+	# 4. MED BAY (Back Right-Center) - Targeted at the Cross/Door
+	create_zone.call("MED BAY", [0.58, 0.22, 0.10, 0.15], _show_therapy)
+	
+	# 5. MEMORIAL (Bottom Right Corner) - Desk area
+	create_zone.call("MEMORIAL", [0.78, 0.75, 0.20, 0.20], _show_memorial)
+	
+	# 6. STASH (Bottom Left Corner) - Lockers/Floor
+	create_zone.call("STASH", [0.02, 0.70, 0.20, 0.20], _show_inventory)
 
 
 func _show_welcome_message():
@@ -178,6 +279,16 @@ func _create_header() -> HBoxContainer:
 	var header = HBoxContainer.new()
 	header.custom_minimum_size.y = 40
 
+	var branding = Label.new()
+	branding.text = "Bark-COM"
+	branding.add_theme_font_size_override("font_size", 28)
+	branding.add_theme_color_override("font_color", Color(1, 0.4, 0.0)) # Orange
+	branding.add_theme_constant_override("outline_size", 4)
+	branding.add_theme_color_override("font_outline_color", Color.BLACK)
+	header.add_child(branding)
+	
+	header.add_child(VSeparator.new())
+	
 	kibble_label = Label.new()
 	kibble_label.text = "Kibble: --"
 	kibble_label.add_theme_font_size_override("font_size", 24)
@@ -207,10 +318,11 @@ func _create_navbar() -> HBoxContainer:
 	navbar.custom_minimum_size.y = 60
 	navbar.alignment = BoxContainer.ALIGNMENT_CENTER
 
+	_create_nav_btn(navbar, "HOME", _show_hub)
 	_create_nav_btn(navbar, "BARRACKS", _show_roster)
 	_create_nav_btn(navbar, "QUARTERMASTER", _show_shop)
 	_create_nav_btn(navbar, "STASH", _show_inventory)
-	_create_nav_btn(navbar, "THERAPY", _show_therapy)
+	_create_nav_btn(navbar, "MED BAY", _show_therapy)
 	_create_nav_btn(navbar, "MEMORIAL", _show_memorial)
 	_create_nav_btn(navbar, "DEPLOY", _show_mission_control)
 	return navbar
