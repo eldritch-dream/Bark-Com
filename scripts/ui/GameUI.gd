@@ -194,44 +194,70 @@ func _setup_ui():
 	status_log_label.text = "System Online."
 	h_split.add_child(status_log_label)
 
-	# 3. HIT CHANCE BREAKDOWN PANEL
+	# 3. HIT CHANCE BREAKDOWN PANEL (SPIFFY REFACTOR)
 	hit_chance_panel = PanelContainer.new()
 	hit_chance_panel.visible = false
-	hit_chance_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block clicks
+	hit_chance_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(hit_chance_panel)
 
-	hit_chance_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	hit_chance_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN  # Grow Left
-	hit_chance_panel.custom_minimum_size = Vector2(250, 0)  # Auto height logic
+	hit_chance_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	# hit_chance_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN # Not needed if position is manual
+	hit_chance_panel.custom_minimum_size = Vector2(240, 0)
+	# Offsets irrelevant if position set manually, but reset to 0 to be safe
+	hit_chance_panel.offset_top = 0
+	hit_chance_panel.offset_right = 0
+	
+	# Style for the panel
+	var hc_style = StyleBoxFlat.new()
+	hc_style.bg_color = Color(0.05, 0.05, 0.05, 0.9)
+	hc_style.border_width_left = 2
+	hc_style.border_width_top = 2
+	hc_style.border_width_right = 2
+	hc_style.border_width_bottom = 2
+	hc_style.border_color = Color(0.3, 0.3, 0.3)
+	hc_style.corner_radius_top_left = 4
+	hc_style.corner_radius_top_right = 4
+	hc_style.corner_radius_bottom_right = 4
+	hc_style.corner_radius_bottom_left = 4
+	hc_style.expand_margin_left = 5
+	hc_style.expand_margin_right = 5
+	hc_style.expand_margin_top = 5
+	hc_style.expand_margin_bottom = 5
+	hit_chance_panel.add_theme_stylebox_override("panel", hc_style)
 
-	# Margin / Offsets
-	hit_chance_panel.offset_top = 100
-	hit_chance_panel.offset_right = -20
-	# Important: Make sure bottom offset allows for content height.
-	# If we want auto-height, we shouldn't anchor bottom to 0 statically if top IS 100.
-	# But PRESET_TOP_RIGHT usually anchors bottom to 0.
-	# Usage: offset_bottom determines the bottom edge relative to anchor top (0).
-	# So offset_bottom must be > 100.
-	# Let's give it plenty of room or use SIZE flags.
-	# Actually, if we want it to autosize downward, we should ensure it has size.y.
-	# Or, we can just set a minimal height via offset.
-	hit_chance_panel.offset_bottom = 400  # Max height constraint? Or just initial. PanelContainer should override if content is larger?
-	# Better: grow_vertical = BEGIN (Down) is default.
-
-	var v_hit = VBoxContainer.new()
-	hit_chance_panel.add_child(v_hit)
-
+	var v_main = VBoxContainer.new()
+	v_main.add_theme_constant_override("separation", 5)
+	hit_chance_panel.add_child(v_main)
+	
+	# -- HEADER (Always Visible) --
+	var h_header = HBoxContainer.new()
+	v_main.add_child(h_header)
+	
+	# Big Label "85%"
 	hit_chance_label = Label.new()
-	hit_chance_label.text = "HIT CHANCE"
-	hit_chance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hit_chance_label.add_theme_font_size_override("font_size", 24)
-	v_hit.add_child(hit_chance_label)
-
-	var sep = HSeparator.new()
-	v_hit.add_child(sep)
-
+	hit_chance_label.text = "0%"
+	hit_chance_label.add_theme_font_size_override("font_size", 32)
+	hit_chance_label.add_theme_constant_override("outline_size", 4)
+	hit_chance_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h_header.add_child(hit_chance_label)
+	
+	# Toggle Button - REPLACED by ALT Key
+	# var btn_details = Button.new()
+	# ...
+	
+	# Help Label
+	var help_lbl = Label.new()
+	help_lbl.text = "[Hold ALT]"
+	help_lbl.add_theme_font_size_override("font_size", 10)
+	help_lbl.modulate = Color(1, 1, 1, 0.5)
+	h_header.add_child(help_lbl)
+	
+	# -- DETAILS (Collapsible) --
 	hit_chance_breakdown = VBoxContainer.new()
-	v_hit.add_child(hit_chance_breakdown)
+	hit_chance_breakdown.visible = false # Hidden default
+	v_main.add_child(hit_chance_breakdown)
+	
+	# Button connection removed. Logic moved to _process.
 
 	# 4. TOP RIGHT: OBJECTIVE PANEL & MENU
 	var top_right_container = VBoxContainer.new()
@@ -720,9 +746,44 @@ func _show_end_screen(title: String, subtitle: String):
 	container.get_node("Sub").text = subtitle
 
 
-func show_hit_chance(percent: int, breakdown: String):
+
+var hit_chance_target_pos: Vector3 = Vector3.ZERO
+var hit_chance_active: bool = false
+
+func _process(_delta):
+	# Update Floating UI Positions
+	if hit_chance_active and hit_chance_panel.visible:
+		var cam = get_viewport().get_camera_3d()
+		if cam and not cam.is_position_behind(hit_chance_target_pos):
+			var screen_pos = cam.unproject_position(hit_chance_target_pos)
+			# Center the panel above the target
+			hit_chance_panel.position = screen_pos - Vector2(hit_chance_panel.size.x / 2, hit_chance_panel.size.y + 20)
+			
+			# Check for ALT key to show details
+			if hit_chance_breakdown:
+				var details_open = Input.is_key_pressed(KEY_ALT)
+				if hit_chance_breakdown.visible != details_open:
+					hit_chance_breakdown.visible = details_open
+					# Force shrink to minimum size when content changes
+					hit_chance_panel.size.y = 0
+		else:
+			# If behind camera, hide or clamp?
+			hit_chance_panel.visible = false
+
+func show_hit_chance(percent: int, breakdown: String, target_pos: Vector3 = Vector3.ZERO):
+	hit_chance_active = true
+	hit_chance_target_pos = target_pos
+	
 	hit_chance_panel.visible = true
 	hit_chance_label.text = "HIT CHANCE: %d%%" % percent
+	
+	# Color Code Title
+	if percent >= 80:
+		hit_chance_label.modulate = Color.GREEN
+	elif percent >= 50:
+		hit_chance_label.modulate = Color.YELLOW
+	else:
+		hit_chance_label.modulate = Color.RED
 
 	# Clear old children from breakdown vbox
 	for c in hit_chance_breakdown.get_children():
@@ -738,6 +799,15 @@ func show_hit_chance(percent: int, breakdown: String):
 		else:
 			lbl.modulate = Color(0.7, 1, 0.7)  # Greenish for bonuses/base
 		hit_chance_breakdown.add_child(lbl)
+
+	# Force initial position update immediately so it doesn't flicker at old pos
+	_process(0)
+
+
+func hide_hit_chance():
+	hit_chance_active = false
+	if hit_chance_panel:
+		hit_chance_panel.visible = false
 
 
 # --- Phase 57: Squad Selection & Tab Cycling ---
@@ -834,9 +904,6 @@ func _cycle_unit_selection():
 signal unit_selection_changed(unit)
 
 
-func hide_hit_chance():
-	if hit_chance_panel:
-		hit_chance_panel.visible = false
 
 
 # ------------------------------------------------------------------------------

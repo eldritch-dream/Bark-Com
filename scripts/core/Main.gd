@@ -437,13 +437,18 @@ func _handle_hover(screen_pos):
 	var hovered_unit = null
 
 	if result:
-		if result.collider.is_in_group("Units"):
+		if result.collider.is_in_group("Units") or result.collider.is_in_group("Destructible"):
 			hovered_unit = result.collider
 		else:
-			# Check grid
+			# Check grid (Fallback, mostly for units slightly off-center or no-collider cases)
 			var gm = get_node("GridManager")
 			var grid_pos = gm.get_grid_coord(result.position)
 			hovered_unit = _get_unit_at_grid(grid_pos)
+			
+			# If no unit, check for destructible at grid?
+			if not hovered_unit:
+				grid_pos = gm.get_grid_coord(result.position)
+				# Quick check for destructibles if needed, but collider check usually covers it.
 
 	# Safe faction check for hover target and selected unit
 	var target_faction = "Neutral"
@@ -462,7 +467,10 @@ func _handle_hover(screen_pos):
 		# Calculate Chance
 		var gm = get_node("GridManager")
 		var calc = CombatResolver.calculate_hit_chance(selected_unit, hovered_unit, gm)
-		SignalBus.on_show_hit_chance.emit(calc["hit_chance"], calc["breakdown"])
+		
+		# Offset position slightly up so UI floats above head
+		var float_pos = hovered_unit.global_position + Vector3(0, 1.8, 0)
+		SignalBus.on_show_hit_chance.emit(calc["hit_chance"], calc["breakdown"], float_pos)
 	else:
 		SignalBus.on_hide_hit_chance.emit()
 

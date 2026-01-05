@@ -22,22 +22,31 @@ static func calculate_hit_chance(
 	if from_pos != Vector2(-999, -999):
 		attack_pos = from_pos
 
-	# HEALING CHECK
-	# Safe Safe Access for Faction
-	var att_faction = attacker.get("faction") if "faction" in attacker else "Neutral"
-	var targ_faction = target.get("faction") if "faction" in target else "Neutral"
+	# --- TARGET VALIDATION ---
+	# We might be targeting a Barrel (StaticBody) or a Unit.
+	# We need to safely extract grid_pos, faction, etc.
+	
+	# 1. Grid Position
+	var target_grid_pos = Vector2.ZERO
+	if "grid_pos" in target:
+		target_grid_pos = target.grid_pos
+	else:
+		# Fallback: Calculate from global position
+		target_grid_pos = grid_manager.get_grid_coord(target.global_position)
 
-	if att_faction == targ_faction:
+	# 2. Faction
+	var att_faction = attacker.get("faction") if "faction" in attacker else "Neutral"
+	var targ_faction = target.get("faction") if "faction" in target else "Neutral" # Barrels are neutral
+
+	# HEALING CHECK
+	if att_faction == targ_faction and att_faction != "Neutral":
 		# Exception 1: Syringe Gun (Healing)
 		if attacker.primary_weapon and attacker.primary_weapon.display_name == "Syringe Gun":
 			return {"hit_chance": 100, "breakdown": "Medikit Match"}
 
 		# Exception 2: Berserk (Panic State 3)
-		# Accessing Unit enum safely (assuming attacker is Unit or has property)
-		elif "current_panic_state" in attacker and attacker.current_panic_state == 3:  # Unit.PanicState.BERSERK
-			# Proceed to calculation (Don't return 0)
+		elif "current_panic_state" in attacker and attacker.current_panic_state == 3:  # BERSERK
 			breakdown += "[Friendly Fire - BERSERK] "
-
 		else:
 			return {"hit_chance": 0, "breakdown": "Friendly Fire"}
 
@@ -57,7 +66,7 @@ static func calculate_hit_chance(
 	# Bond Modifiers (Aim)
 	if attacker.has_method("get_active_bond_bonuses"):
 		var bond_bonus = attacker.get_active_bond_bonuses()
-		if bond_bonus["aim"] > 0:
+		if bond_bonus.get("aim", 0) > 0:
 			hit_chance += bond_bonus["aim"]
 			breakdown += " | Bond: +" + str(bond_bonus["aim"])
 
@@ -74,7 +83,7 @@ static func calculate_hit_chance(
 		weapon_range = attacker.attack_range
 
 	# 2. Distance Penalty
-	var dist = attack_pos.distance_to(target.grid_pos)
+	var dist = attack_pos.distance_to(target_grid_pos)
 	if dist > weapon_range:
 		# 5% penalty per tile outside optimal range
 		var penalty = round((dist - weapon_range) * DISTANCE_PENALTY_PER_TILE)
@@ -82,14 +91,14 @@ static func calculate_hit_chance(
 		breakdown += " | Dist Pen: -" + str(penalty)
 
 	# 3. Target Defense (Innate)
-	var targ_def = target.defense if "defense" in target else 0
+	var targ_def = target.defense if "defense" in target else 0 # Barrels 0
 	if targ_def > 0:
 		hit_chance -= targ_def
 		breakdown += " | Def: -" + str(targ_def)
 
 	# 4. Cover Penalty
 	# Use new helper to check adjacent obstacles
-	var cover_height = get_cover_height_at_pos(target.grid_pos, attack_pos, grid_manager)
+	var cover_height = get_cover_height_at_pos(target_grid_pos, attack_pos, grid_manager)
 
 	var cover_pen = 0
 
@@ -121,7 +130,7 @@ static func calculate_hit_chance(
 	var targ_elev = 0
 	if grid_manager:
 		att_elev = grid_manager.get_tile_data(attack_pos).get("elevation", 0)
-		targ_elev = grid_manager.get_tile_data(target.grid_pos).get("elevation", 0)
+		targ_elev = grid_manager.get_tile_data(target_grid_pos).get("elevation", 0)
 
 	var crit_bonus = 0
 
