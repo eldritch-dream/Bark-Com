@@ -313,10 +313,11 @@ func equip_item(corgi_name: String, inventory_index: int) -> bool:
 		# Add to Unit Inventory (Max 2)
 		if not unit_data.has("inventory"):
 			unit_data["inventory"] = []
+			
+		var max_slots = 2
 
 		# Find valid slot or append
-		# 1. Check for empty space (limit 2)
-		if unit_data["inventory"].size() < 2:
+		if unit_data["inventory"].size() < max_slots:
 			unit_data["inventory"].append(item)
 			inventory.remove_at(inventory_index)
 			print("GameManager: Added ", item.display_name, " to ", corgi_name, "'s inventory.")
@@ -533,7 +534,8 @@ func save_game():
 			"inventory": []
 		},
 		"squad": {"roster": [], "fallen_heroes": fallen_heroes, "relationships": relationships},
-		"world": {"active_nemeses": active_nemeses, "invasion_progress": invasion_progress}
+		"world": {"active_nemeses": active_nemeses, "invasion_progress": invasion_progress},
+		"bark_trees": BarkTreeManager.get_save_data() if BarkTreeManager else {}
 	}
 
 	# Serialize Roster
@@ -599,6 +601,10 @@ func load_game():
 		# MIGRATION CHECK
 		if not data.has("meta") or data["meta"].get("version", 0) < SAVE_VERSION:
 			data = _migrate_save(data)
+
+		# Load Bark Trees
+		if data.has("bark_trees") and BarkTreeManager:
+			BarkTreeManager.load_save_data(data["bark_trees"])
 
 		# Load META
 		if data.has("meta"):
@@ -719,18 +725,31 @@ func get_available_classes() -> Array:
 	return classes
 
 
-func recruit_new_dog(cost: int = RECRUIT_COST) -> bool:
+func recruit_new_dog(cost: int = RECRUIT_COST, forced_class: String = "") -> bool:
 	if kibble >= cost:
 		kibble -= cost
 		var random_name = _get_random_name()
 
-		# Pick Random Class from Disk
+		# Pick Class
+		var picked_class = ""
 		var available_classes = get_available_classes()
-		var random_class = available_classes.pick_random()
+		
+		# Validation
+		if forced_class != "":
+			# Case-insensitive check?
+			for c in available_classes:
+				if c.to_lower() == forced_class.to_lower():
+					picked_class = c
+					break
+			if picked_class == "":
+				print("GameManager: Warning - Invalid class requested '", forced_class, "'. Falling back to random.")
+		
+		if picked_class == "":
+			picked_class = available_classes.pick_random()
 
-		_add_recruit(random_name, 1, random_class)
+		_add_recruit(random_name, 1, picked_class)
 		if DEBUG_GAME:
-			print("GameManager: Recruited ", random_name, " (", random_class, ")")
+			print("GameManager: Recruited ", random_name, " (", picked_class, ")")
 		SignalBus.on_kibble_changed.emit(kibble)
 		return true
 	else:
@@ -809,9 +828,8 @@ func modify_bond(n1: String, n2: String, amount: int):
 	var old_level = get_bond_level_from_score(old_val)
 
 	if level > old_level:
-		if FloatingTextManager.instance:
-			# Not ideal if happening off-screen, but okay for centralized growth
-			print("GameManager: BOND LEVEL UP! ", key, " -> Lvl ", level)
+		print("GameManager: BOND LEVEL UP! ", key, " -> Lvl ", level)
+		# SignalBus emission handled by Unit causing the growth
 
 	if DEBUG_GAME:
 		print("GameManager: Bond ", key, " +", amount, " = ", new_val)

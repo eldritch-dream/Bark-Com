@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "recruit_sit_stay"
+display_name = "Sit & Stay"
+description = "Gain +20 Defense if you end your turn without attacking."
+icon = null
+metadata = {
+"defense_bonus_conditional": 20
+}

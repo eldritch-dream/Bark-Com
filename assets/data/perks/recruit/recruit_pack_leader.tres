@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "recruit_pack_leader"
+display_name = "Pack Leader"
+description = "Aura: All allies within 3 tiles gain +10 Aim and +5 Willpower."
+icon = null
+metadata = {
+"aura_radius": 3,
+"aura_aim": 10,
+"aura_will": 5
+}

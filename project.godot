@@ -21,6 +21,7 @@ SignalBus="*res://scripts/managers/SignalBus.gd"
 GameManager="*res://scripts/core/GameManager.gd"
 InputManager="*res://scripts/managers/InputManager.gd"
 CosmeticManager="*res://scripts/managers/CosmeticManager.gd"
+BarkTreeManager="*res://scripts/managers/BarkTreeManager.gd"
 
 [display]
 

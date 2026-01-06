@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "scout_go_for_ankles"
+display_name = "Go For Ankles"
+description = "[color=gold]Active Ability[/color]: Powerful melee attack (2 AP). Deals damage and applies [color=red]Slowed[/color] (-4 Mobility) and [color=red]Vulnerable[/color] (+15% Damage Taken)."
+icon = null
+metadata = {
+"active_ability": "GoForAnkles"
+}

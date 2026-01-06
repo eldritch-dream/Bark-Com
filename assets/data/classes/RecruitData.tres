@@ -1,17 +1,32 @@
-[gd_resource type="Resource" script_class="ClassData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="ClassData" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/ClassData.gd" id="1_class"]
 [ext_resource type="Script" path="res://scripts/abilities/OverwatchAbility.gd" id="2_abil"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_cardio.tres" id="3_cardio"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_sit_stay.tres" id="4_sit"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_good_boy.tres" id="5_good"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_vigilance.tres" id="6_vig"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_pack_leader.tres" id="7_pack"]
 
 [resource]
 script = ExtResource("1_class")
 display_name = "Recruit"
 description = "Basic training. Reliable."
+icon = null
 base_stats = {
 "accuracy": 65,
 "defense": 0,
 "max_hp": 10,
 "mobility": 6
 }
-rank_tree = {}
+stat_growth = {
+"accuracy": 2,
+"max_hp": 1
+}
+rank_tree = {
+2: [ExtResource("3_cardio"), ExtResource("4_sit")],
+4: [ExtResource("5_good"), ExtResource("6_vig")],
+6: [ExtResource("7_pack")]
+}
 starting_abilities = Array[Script]([ExtResource("2_abil")])
+talent_tree = {}

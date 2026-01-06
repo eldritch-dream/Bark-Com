@@ -55,8 +55,8 @@ func _ready():
 	mission_manager.mission_completed.connect(func(_data): _on_mission_completed())
 
 	# Setup UI/Feedback Managers
-	var ftm = load("res://scripts/managers/FloatingTextManager.gd").new()
-	add_child(ftm)
+	# var ftm = load("res://scripts/managers/FloatingTextManager.gd").new()
+	# add_child(ftm)
 
 	var vfxm = load("res://scripts/managers/VFXManager.gd").new()
 	add_child(vfxm)
@@ -1328,6 +1328,7 @@ func _on_tile_clicked(grid_pos: Vector2, button_index: int):
 			)
 			print("Ability Result: ", result)
 			game_ui.log_message(result)
+			# Do NOT trigger floating text from log_message if it does that.
 			_clear_targeting()
 
 	elif current_input_state == InputState.TARGETING:  # Attack

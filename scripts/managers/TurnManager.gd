@@ -393,7 +393,7 @@ func handle_reaction_fire(mover, from_pos: Vector2 = Vector2(-999, -999)):
 			continue  # No friendly fire reaction
 
 		# Check Overwatch Status
-		if unit.get("is_overwatch"):  # Use get to avoid crash if property missing on base class (though Unit has it)
+		if unit.get("is_overwatch_active"):  # Use get to avoid crash if property missing on base class (though Unit has it)
 			# Check Validation (Range & LOS)
 			# We can use CombatResolver's hit chance. If > 0, we can shoot.
 			# Note: We might want a dedicated LOS check, but calculate_hit_chance usually covers it.
@@ -443,7 +443,7 @@ func handle_reaction_fire(mover, from_pos: Vector2 = Vector2(-999, -999)):
 					SignalBus.on_reaction_fire_triggered.emit(unit, mover)
 
 					# Consume Overwatch
-					unit.is_overwatch = false
+					unit.is_overwatch_active = false
 					SignalBus.on_request_floating_text.emit(
 						unit.position, "REACTION!", Color.ORANGE
 					)

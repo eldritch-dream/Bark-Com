@@ -4,12 +4,10 @@ class_name CorgiUnit
 # Corgi Specifics
 var is_splooting: bool = false
 var turns_without_attack: int = 0
-var base_mobility: int
 
 
 func _ready():
 	super._ready()
-	base_mobility = mobility
 
 
 func _setup_visuals():

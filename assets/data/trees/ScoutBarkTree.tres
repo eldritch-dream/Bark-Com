@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ClassBarkTree" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassBarkTree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_low_profile.tres" id="2_low"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_zoomies.tres" id="3_zoom"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_lightning_reflexes.tres" id="4_reflex"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_go_for_ankles.tres" id="5_ankles"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_run_and_gun.tres" id="6_run"]
+
+[resource]
+script = ExtResource("1_tree")
+class_id = "Scout"
+rank_2_options = Array[Resource]([ExtResource("2_low"), ExtResource("3_zoom")])
+rank_4_options = Array[Resource]([ExtResource("4_reflex"), ExtResource("5_ankles")])
+rank_6_options = Array[Resource]([ExtResource("6_run")])

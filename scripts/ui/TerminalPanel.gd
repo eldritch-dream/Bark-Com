@@ -138,8 +138,15 @@ func _process_command(cmd_str: String):
 			
 		"recruit":
 			if _require_context(GameManager.GameState.BASE):
-				if GameManager.recruit_new_dog():
-					println("Recruitment successful!", Color.GREEN)
+				var target_class = ""
+				if args.size() > 0:
+					target_class = args[0]
+				
+				if GameManager.recruit_new_dog(GameManager.RECRUIT_COST, target_class):
+					if target_class != "":
+						println("Recruitment successful! (Class: " + target_class + ")", Color.GREEN)
+					else:
+						println("Recruitment successful!", Color.GREEN)
 				else:
 					println("Not enough Kibble (Need 50).", Color.RED)
 		"kibble":
@@ -207,6 +214,39 @@ func _process_command(cmd_str: String):
 				GameManager.kibble += 1000000
 				SignalBus.on_kibble_changed.emit(GameManager.kibble)
 				println("Infinite wealth granted. Don't spend it all in one place.", Color.GOLD)
+		"xp":
+			if GameManager:
+				var amount = 100
+				if args.size() > 0:
+					amount = int(args[0])
+				
+				# Safeguard: Cap input amount
+				if amount > 2000:
+					amount = 2000
+					println("Warning: XP amount capped at 2000.", Color.ORANGE)
+				
+				var count = 0
+				for member in GameManager.roster:
+					var current_xp = member.get("xp", 0)
+					member["xp"] = min(current_xp + amount, 9999) # Safeguard: Cap total XP
+					count += 1
+					
+					# Simple Threshold Check (Duplicate of Unit.gd logic for convenience)
+					# {1: 0, 2: 100, 3: 300, 4: 600, 5: 1000}
+					var lvl = member.get("level", 1)
+					var new_level = lvl
+					if member["xp"] >= 1000: new_level = 5
+					elif member["xp"] >= 600: new_level = 4
+					elif member["xp"] >= 300: new_level = 3
+					elif member["xp"] >= 100: new_level = 2
+					
+					if new_level > lvl:
+						member["level"] = new_level
+						println(member["name"] + " leveled up to " + str(new_level) + "!", Color.CYAN)
+				
+				GameManager.save_game()
+				SignalBus.on_skin_changed.emit() # Force UI Refresh
+				println("Gave " + str(amount) + " XP to " + str(count) + " units.", Color.GREEN)
 		_:
 			println("Unknown command: " + cmd, Color.RED)
 

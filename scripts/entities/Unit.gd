@@ -15,8 +15,33 @@ signal on_death(unit)
 @export_group("Stats")
 @export var max_hp: int = 10
 @export var current_hp: int = 10
-@export var mobility: int = 6
-@export var max_sanity: int = 100
+@export var base_mobility: int = 6
+var mobility: int:
+	get:
+		var val = base_mobility
+		if BarkTreeManager:
+			if BarkTreeManager.has_perk(name, "recruit_cardio"):
+				val += 2
+			
+			if BarkTreeManager.has_perk(name, "scout_zoomies"):
+				# Zoomies: +2 for first 2 turns
+				var tm = get_tree().get_first_node_in_group("TurnManager")
+				if tm and tm.turn_count <= 2:
+					val += 2
+					
+		# Status Modifiers
+		if modifiers.has("mobility"):
+			val += modifiers["mobility"]
+			
+		return max(1, val) # Minimum movement 1
+
+@export var base_max_sanity: int = 100
+var max_sanity: int:
+	get:
+		var val = base_max_sanity
+		if BarkTreeManager and BarkTreeManager.has_perk(name, "recruit_good_boy"):
+			val += 10
+		return val
 @export var current_sanity: int = 100
 @export var max_ap: int = 3
 @export var current_ap: int = 2:
@@ -39,7 +64,6 @@ const XP_THRESHOLDS = {1: 0, 2: 100, 3: 300, 4: 600, 5: 1000}
 @export_group("Data")
 @export var current_class_data: Resource  # Type: ClassData
 @export var abilities: Array[Resource] = []  # Type: Ability
-var unlocked_talents: Array[Resource] = []  # Type: Array[TalentNode]
 var primary_weapon: WeaponData  # Equipment
 @export var inventory: Array[Resource] = [null, null]  # Fixed size 2. Type: ConsumableData
 
@@ -53,7 +77,9 @@ var is_moving: bool:
 		return false
 
 var has_moved: bool = false
-var is_overwatch: bool = false
+var has_attacked: bool = false
+var is_overwatch_active: bool = false
+var overwatch_aim_bonus: int = 0
 
 var is_dead: bool:
 	get:
@@ -88,6 +114,7 @@ var panic_turn_count: int = 0
 
 # Cosmetics
 var equipped_cosmetics: Dictionary = {}  # Slot -> ItemID
+var overwatch_shots_dodged_this_turn: int = 0
 
 # --- SIGNALS ---
 signal movement_finished
@@ -163,15 +190,20 @@ func apply_class_stats(cls_name: String):
 	# Grant Universal Hack Ability
 	abilities.append(load("res://scripts/abilities/HackAbility.gd").new())
 
+	var loaded_from_resource = false
+
 	# Try Data Resource
 	var resource_path = "res://assets/data/classes/" + cls_name + "Data.tres"
+	print("Unit: Attempting to load class data from: ", resource_path)
 	if ResourceLoader.exists(resource_path):
 		var class_data = load(resource_path)
 		if class_data:
+			print("Unit: Successfully loaded ClassData for ", cls_name)
 			current_class_data = class_data
 			max_hp = class_data.base_stats.get("max_hp", 10)
 			current_hp = max_hp
-			mobility = class_data.base_stats.get("mobility", 6)
+			base_mobility = class_data.base_stats.get("mobility", 6)
+			base_max_sanity = class_data.base_stats.get("max_sanity", 100) # Ensure base_max_sanity is set
 			accuracy = class_data.base_stats.get("accuracy", 65)
 			defense = class_data.base_stats.get("defense", 10)
 			tech_score = class_data.base_stats.get("tech_score", 0)
@@ -181,51 +213,80 @@ func apply_class_stats(cls_name: String):
 
 			if DEBUG_UNIT:
 				print(name + " applied ClassData: " + cls_name)
-			return
+			# Do NOT return here, fall through to perks? 
+			# Actually, if we return, we skip legacy fallback, which is good.
+			# But we also skip perk injection logic at bottom.
+			
+			# We should skip legacy fallback only.
+			loaded_from_resource = true
+
+		else:
+			print("Unit: ClassData load failed (null) for ", resource_path)
+	else:
+		print("Unit: Resource not found at ", resource_path)
 
 	# Fallback (Legacy)
-	match cls_name:
-		"Recruit":
-			max_hp = 10
-			mobility = 6
-			abilities.append(load("res://scripts/abilities/GrenadeToss.gd").new())
-		"Scout":
-			max_hp = 8
-			mobility = 8
-			tech_score = 20
-			abilities.append(load("res://scripts/abilities/GrenadeToss.gd").new())
-			abilities.append(load("res://scripts/abilities/OverwatchAbility.gd").new())
-		"Heavy":
-			max_hp = 14
-			mobility = 4
-			abilities.append(load("res://scripts/abilities/GrenadeToss.gd").new())
-		"Paramedic":
-			max_hp = 10
-			mobility = 6
-			abilities.append(load("res://scripts/abilities/Triage.gd").new())
-		"Grenadier":
-			max_hp = 12
-			mobility = 5
-			abilities.append(load("res://scripts/abilities/ScatterShot.gd").new())
-		"Sniper":
-			max_hp = 6
-			mobility = 5
-			abilities.append(load("res://scripts/abilities/OverwatchAbility.gd").new())
-		_:
-			print("Unknown Class: ", cls_name, ". Defaulting to Recruit.")
-			max_hp = 10
-			mobility = 6
-			abilities.append(load("res://scripts/abilities/GrenadeToss.gd").new())
+	if not loaded_from_resource:
+		print("Unit: Falling back to legacy stats for ", cls_name)
+		match cls_name:
+			"Recruit":
+				max_hp = 10
+				base_mobility = 6
+				abilities.append(load("res://scripts/abilities/GrenadeToss.gd").new())
+			"Scout":
+				max_hp = 8
+				base_mobility = 8
+				tech_score = 20
+				abilities.append(load("res://scripts/abilities/OverwatchAbility.gd").new())
+			"Heavy":
+				max_hp = 14
+				base_mobility = 4
+				abilities.append(load("res://scripts/abilities/ScatterShot.gd").new())
+				
+			"Paramedic":
+				max_hp = 10
+				base_mobility = 6
+				abilities.append(load("res://scripts/abilities/Triage.gd").new())
+			"Grenadier":
+				max_hp = 12
+				base_mobility = 5
+				abilities.append(load("res://scripts/abilities/GrenadeToss.gd").new())
+			"Sniper":
+				max_hp = 6
+				base_mobility = 5
+				abilities.append(load("res://scripts/abilities/OverwatchAbility.gd").new())
+			_:
+				print("Unknown Class: ", cls_name, ". Defaulting to Recruit.")
+				max_hp = 10
+				base_mobility = 6
+				abilities.append(load("res://scripts/abilities/GrenadeToss.gd").new())
 
 	current_hp = max_hp
+	
+	# Perk Abilities
+	if BarkTreeManager:
+		print("DEBUG_UNIT: Checking Perks for ", name)
+		var unlocked = BarkTreeManager.get_unlocked_perks(name)
+		print("DEBUG_UNIT: Unlocked Perks: ", unlocked)
+		
+		if BarkTreeManager.has_perk(name, "scout_run_and_gun"):
+			print("DEBUG_UNIT: Injecting Run & Gun")
+			abilities.append(load("res://scripts/abilities/RunAndGunAbility.gd").new())
+		if BarkTreeManager.has_perk(name, "scout_go_for_ankles"):
+			print("DEBUG_UNIT: Injecting Go For Ankles")
+			abilities.append(load("res://scripts/abilities/GoForAnklesAbility.gd").new())
+	else:
+		print("DEBUG_UNIT: BarkTreeManager not found!")
 
 
 # --- ACTION LOGIC ---
 func on_turn_start():
 	current_ap = max_ap
 	has_moved = false
+	has_attacked = false
 	enemies_seen_this_turn.clear()
-
+	overwatch_shots_dodged_this_turn = 0
+	
 	_check_cooldowns_start()
 	_update_effects_start()
 
@@ -235,7 +296,7 @@ func on_turn_start():
 
 func refresh_ap():
 	current_ap = max_ap
-	is_overwatch = false
+	is_overwatch_active = false
 	if DEBUG_UNIT:
 		print(name, " AP refreshed to ", current_ap)
 
@@ -256,14 +317,20 @@ func spend_ap(amount: int) -> bool:
 		print(name, " not enough AP!")
 	return false
 
-
+# --- OVERWATCH ---
 func enter_overwatch():
-	if current_ap > 0:
-		spend_ap(current_ap)
-		is_overwatch = true
-		if DEBUG_UNIT:
-			print(name, " enters OVERWATCH.")
-		SignalBus.on_request_floating_text.emit(position, "OVERWATCH", Color.CYAN)
+	# Vigilance Perk: +10 Aim on Overwatch
+	var aim_bonus = 0
+	if has_perk("recruit_vigilance"):
+		aim_bonus = 10
+		print(name, " enters Overwatch with Vigilance (+10 Aim).")
+	
+	current_ap = 0
+	is_overwatch_active = true
+	overwatch_aim_bonus = aim_bonus # Must store this for CombatResolver
+	
+	SignalBus.on_combat_action_started.emit(self, null, "Overwatch", position)
+	SignalBus.on_request_floating_text.emit(position + Vector3(0, 2, 0), "OVERWATCH", Color.CYAN)
 
 
 func move_to(target_grid_pos: Vector2, world_pos: Vector3):
@@ -285,20 +352,32 @@ func move_along_path(path_points: Array, grid_points: Array = []):
 func take_damage(amount: int):
 	if is_dead:
 		return
+		
+	var final_amount = float(amount)
+	
+	# Apply Vulnerable / Resistances
+	if modifiers.has("damage_taken_mult"):
+		# e.g. 0.15 for +15%
+		final_amount *= (1.0 + modifiers["damage_taken_mult"])
+		
+	# Convert back to int.
+	var damage_int = int(round(final_amount))
+	if damage_int < 1 and amount > 0: damage_int = 1 # Minimum 1 if hit occurred
+	
 	var old_hp = current_hp
-	current_hp = max(0, current_hp - amount)
+	current_hp = max(0, current_hp - damage_int)
 	if DEBUG_UNIT:
-		print(name, " took ", amount, " damage. HP: ", current_hp, "/", max_hp)
+		print(name, " took ", damage_int, " damage (Raw:", amount, "). HP: ", current_hp, "/", max_hp)
 
 	SignalBus.on_unit_health_changed.emit(self, old_hp, current_hp)
 	SignalBus.on_unit_stats_changed.emit(self)
 
-	if amount > 0 and is_overwatch:
-		is_overwatch = false
+	if damage_int > 0 and is_overwatch_active:
+		is_overwatch_active = false
 		if DEBUG_UNIT:
 			print(name, " lost Overwatch due to damage.")
 
-	SignalBus.on_request_floating_text.emit(position, str(amount), Color.RED)
+	SignalBus.on_request_floating_text.emit(position, str(damage_int), Color.RED)
 
 	if current_hp <= 0:
 		die()
@@ -364,6 +443,36 @@ func get_active_bond_bonuses() -> Dictionary:
 				# Level 2: Packmate -> Aim
 				if level >= 2:
 					bonuses["aim"] += 10
+
+	return bonuses
+
+
+func get_aura_bonuses() -> Dictionary:
+	var bonuses = {"aim": 0, "willpower": 0}
+	if not GameManager:
+		return bonuses
+
+	# Find adjacent units (Radius 3 for Pack Leader)
+	var tm = get_tree().get_first_node_in_group("TurnManager")
+	if not tm:
+		return bonuses
+
+	for u in tm.units:
+		if (
+			is_instance_valid(u)
+			and u != self
+			and "faction" in u
+			and u.faction == "Player"
+			and u.current_hp > 0
+		):
+			var dist = grid_pos.distance_to(u.grid_pos)
+			
+			# Check for Pack Leader (Radius 3)
+			# BarkTreeManager Hook
+			if BarkTreeManager and BarkTreeManager.has_perk(u.name, "recruit_pack_leader"):
+				if dist <= 3.0:
+					bonuses["aim"] += 10
+					bonuses["willpower"] += 5
 
 	return bonuses
 
@@ -525,6 +634,39 @@ func gain_xp(amount: int):
 	_check_level_up()
 
 
+func learn_talent(perk_res: Resource):
+	if not perk_res:
+		return
+		
+	print(name, " learning talent: ", perk_res.display_name)
+	
+	# Active Ability Injection
+	if perk_res.get("metadata") and perk_res.metadata.has("active_ability"):
+		var ability_name = perk_res.metadata["active_ability"]
+		var script_path = "res://scripts/abilities/" + ability_name + "Ability.gd"
+		
+		# Prevent Duplicates
+		for a in abilities:
+			# Check class name or display name? Class name is safe.
+			if a.get_script().resource_path == script_path:
+				print(" - Ability already learned: ", ability_name)
+				return
+
+		if ResourceLoader.exists(script_path):
+			var abil_script = load(script_path)
+			if abil_script:
+				var abil_instance = abil_script.new()
+				abilities.append(abil_instance)
+				print(" - Injected Ability: ", ability_name)
+				
+				# Refresh UI if selected? 
+				# SignalBus.on_unit_stats_changed.emit(self) might handle it.
+		else:
+			print(" - ERROR: Ability script not found at ", script_path)
+
+	SignalBus.on_unit_stats_changed.emit(self)
+
+
 func recalculate_stats():
 	# Re-apply level bonuses (retroactive)
 	var bonus_hp = (rank_level - 1) * 2
@@ -545,28 +687,20 @@ func _check_level_up():
 		current_hp += 2
 
 
-func learn_talent(talent: Resource):
-	if not talent:
-		return
-	unlocked_talents.append(talent)
-	if DEBUG_UNIT:
-		print(name + " learned talent: " + talent.display_name)
-
-	if talent.stat_modifiers.has("mobility"):
-		mobility += talent.stat_modifiers["mobility"]
-	if talent.stat_modifiers.has("max_hp"):
-		max_hp += talent.stat_modifiers["max_hp"]
-		current_hp += talent.stat_modifiers["max_hp"]
-
-	if talent.ability_script:
-		abilities.append(talent.ability_script.new())
-		SignalBus.on_unit_stats_changed.emit(self)
-
 
 func has_perk(tag: String) -> bool:
-	for t in unlocked_talents:
-		if t.passive_tag == tag:
+	if BarkTreeManager:
+		# Check for class-specific prefix first (e.g. recruit_sit_stay)
+		if unit_class:
+			var prefix = unit_class.to_lower() + "_"
+			var full_id = prefix + tag
+			if BarkTreeManager.has_perk(name, full_id):
+				return true
+		
+		# Check raw tag
+		if BarkTreeManager.has_perk(name, tag):
 			return true
+
 	return false
 
 
@@ -577,6 +711,9 @@ func apply_effect(effect: StatusEffect):
 			if DEBUG_UNIT:
 				print(name, " refreshed effect: ", effect.display_name)
 			existing.duration = effect.duration
+			# Do NOT call on_apply again if refreshed, to avoid double text
+			# effect.on_apply(self) 
+			print(name, " refreshed effect: ", effect.display_name)
 			return
 	active_effects.append(effect)
 	effect.on_apply(self)
@@ -618,6 +755,24 @@ func process_turn_end_effects():
 		effect.on_turn_end(self)
 		if effect.duration <= 0:
 			remove_effect(effect)
+
+	# Sit & Stay: +20 Defense if didn't attack
+	# Apply AFTER clearing old effects so it lasts through enemy turn
+	if has_perk("recruit_sit_stay"):
+		if not has_attacked:
+			# Check if already active to prevent double text
+			var already_has = false
+			for e in active_effects:
+				if e.display_name == "Sit & Stay":
+					already_has = true
+					e.duration = 1 # Refresh
+					print(name, " refreshes Sit & Stay.")
+					break
+			
+			if not already_has:
+				print(name, " triggers Sit & Stay (No attack this turn).")
+				var buff = load("res://scripts/resources/statuses/SitStayStatus.gd").new()
+				apply_effect(buff)
 
 
 func _start_turn_updates():

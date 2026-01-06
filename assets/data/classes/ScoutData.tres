@@ -1,50 +1,34 @@
 [gd_resource type="Resource" script_class="ClassData" load_steps=8 format=3]
 
-[ext_resource type="Script" path="res://scripts/resources/TalentNode.gd" id="1_dj3we"]
-[ext_resource type="Script" path="res://scripts/resources/ClassData.gd" id="2_qp7wr"]
-[ext_resource type="Script" path="res://scripts/abilities/OverwatchAbility.gd" id="3_fcfry"]
-
-[sub_resource type="Resource" id="Resource_0wwi0"]
-script = ExtResource("1_dj3we")
-display_name = "Zoomies"
-description = "Gain +2 Mobility."
-stat_modifiers = {
-"mobility": 2
-}
-
-[sub_resource type="Resource" id="Resource_s8we5"]
-script = ExtResource("1_dj3we")
-display_name = "Low Profile"
-description = "Half Cover counts as Full Cover."
-passive_tag = "low_profile"
-
-[sub_resource type="Resource" id="Resource_is84w"]
-script = ExtResource("1_dj3we")
-display_name = "Tactical Sploot"
-description = "Provides armor buff while splooting."
-passive_tag = "tactical_sploot"
-
-[sub_resource type="Resource" id="Resource_wesx3"]
-script = ExtResource("1_dj3we")
-display_name = "Thick Fur"
-description = "Gain +2 Max HP."
-stat_modifiers = {
-"max_hp": 2
-}
+[ext_resource type="Script" path="res://scripts/resources/ClassData.gd" id="1_class"]
+[ext_resource type="Script" path="res://scripts/abilities/OverwatchAbility.gd" id="2_abil"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_zoomies.tres" id="3_zoom"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_low_profile.tres" id="4_low"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_go_for_ankles.tres" id="5_ankles"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_lightning_reflexes.tres" id="6_reflex"]
+[ext_resource type="Resource" path="res://assets/data/perks/scout/scout_run_and_gun.tres" id="7_run"]
 
 [resource]
-script = ExtResource("2_qp7wr")
+script = ExtResource("1_class")
 display_name = "Scout"
 description = "Fast and agile. Loves to flank."
+icon = null
 base_stats = {
 "accuracy": 70,
-"defense": 10,
+"defense": 0,
 "max_hp": 8,
 "mobility": 8,
 "tech_score": 20
 }
-rank_tree = {
-2: [SubResource("Resource_0wwi0"), SubResource("Resource_s8we5")],
-4: [SubResource("Resource_is84w"), SubResource("Resource_wesx3")]
+stat_growth = {
+"accuracy": 2,
+"max_hp": 1,
+"mobility": 0
 }
-starting_abilities = Array[Script]([ExtResource("3_fcfry")])
+rank_tree = {
+2: [ExtResource("4_low"), ExtResource("3_zoom")],
+4: [ExtResource("6_reflex"), ExtResource("5_ankles")],
+6: [ExtResource("7_run")]
+}
+starting_abilities = Array[Script]([ExtResource("2_abil")])
+talent_tree = {}

@@ -375,6 +375,8 @@ func _ready():
 	SignalBus.on_mission_ended.connect(_on_sb_mission_ended)
 	SignalBus.on_show_hit_chance.connect(show_hit_chance)
 	SignalBus.on_hide_hit_chance.connect(hide_hit_chance)
+	SignalBus.on_turn_banner_finished.connect(func(): pass)
+	SignalBus.on_request_floating_text.connect(_queue_floating_text)
 	SignalBus.on_ui_select_unit.connect(_select_unit)
 	SignalBus.on_cinematic_mode_changed.connect(_on_cinematic_mode)
 
@@ -750,8 +752,20 @@ func _show_end_screen(title: String, subtitle: String):
 var hit_chance_target_pos: Vector3 = Vector3.ZERO
 var hit_chance_active: bool = false
 
-func _process(_delta):
-	# Update Floating UI Positions
+var floating_text_queue: Array = []
+var floating_text_timer: float = 0.0
+const FLOATING_TEXT_DELAY: float = 0.4
+
+func _process(delta):
+	# Process Queue
+	if floating_text_queue.size() > 0:
+		floating_text_timer -= delta
+		if floating_text_timer <= 0:
+			var msg = floating_text_queue.pop_front()
+			_spawn_floating_text(msg["pos"], msg["text"], msg["color"])
+			floating_text_timer = FLOATING_TEXT_DELAY
+
+	# Update Floating UI Positions (Hit Chance)
 	if hit_chance_active and hit_chance_panel.visible:
 		var cam = get_viewport().get_camera_3d()
 		if cam and not cam.is_position_behind(hit_chance_target_pos):
@@ -1168,3 +1182,30 @@ func _on_squad_detail_pressed():
 func _on_options_pressed():
 	if options_panel:
 		options_panel.open()
+
+func _queue_floating_text(pos: Vector3, text: String, color: Color):
+	floating_text_queue.append({"pos": pos, "text": text, "color": color})
+
+func _spawn_floating_text(pos: Vector3, text: String, color: Color):
+	var cam = get_viewport().get_camera_3d()
+	if not cam: return
+	if cam.is_position_behind(pos): return
+
+	var screen_pos = cam.unproject_position(pos)
+	var lbl = Label.new()
+	lbl.text = text
+	lbl.modulate = color
+	lbl.add_theme_font_size_override("font_size", 24)
+	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	lbl.add_theme_constant_override("outline_size", 4)
+	lbl.position = screen_pos
+	# Center it approx
+	lbl.position -= Vector2(50, 20)
+	
+	add_child(lbl)
+	
+	var tw = create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(lbl, "position:y", screen_pos.y - 100, 1.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(lbl, "modulate:a", 0.0, 1.5).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(lbl.queue_free)

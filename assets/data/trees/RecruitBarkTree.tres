@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ClassBarkTree" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassBarkTree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_cardio.tres" id="2_cardio"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_sit_stay.tres" id="3_sit"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_good_boy.tres" id="4_good"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_vigilance.tres" id="5_vig"]
+[ext_resource type="Resource" path="res://assets/data/perks/recruit/recruit_pack_leader.tres" id="6_pack"]
+
+[resource]
+script = ExtResource("1_tree")
+class_id = "Recruit"
+rank_2_options = Array[Resource]([ExtResource("2_cardio"), ExtResource("3_sit")])
+rank_4_options = Array[Resource]([ExtResource("4_good"), ExtResource("5_vig")])
+rank_6_options = Array[Resource]([ExtResource("6_pack")])

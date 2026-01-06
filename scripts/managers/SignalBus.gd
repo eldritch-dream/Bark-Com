@@ -4,7 +4,9 @@ extends Node
 
 # Unit Events
 signal on_unit_health_changed(unit, old_hp: int, new_hp: int)
-signal on_unit_stats_changed(unit)  # Covers AP, Sanity updates
+signal on_unit_stats_changed(unit)
+signal on_perk_learned(unit_name: String, perk_id: String)
+  # Covers AP, Sanity updates
 signal on_unit_died(unit)
 
 # Interaction Events

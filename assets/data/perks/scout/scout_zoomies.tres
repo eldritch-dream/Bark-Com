@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "scout_zoomies"
+display_name = "Zoomies"
+description = "Gain [color=cyan]+2 Mobility[/color] for the first 2 turns of combat."
+icon = null
+metadata = {
+"mobility_bonus_first_turns": 4
+}

@@ -72,8 +72,18 @@ static func calculate_hit_chance(
 
 	# Reaction Fire Penalty (0.8x)
 	if is_reaction:
-		hit_chance *= 0.8
-		breakdown += " | Reaction (x0.8)"
+		# Lightning Reflexes (Target Logic)
+		if target.has_method("has_perk") and target.has_perk("scout_lightning_reflexes"):
+			if "overwatch_shots_dodged_this_turn" in target and target.overwatch_shots_dodged_this_turn == 0:
+				hit_chance = 0
+				breakdown += " | LIGHTNING REFLEXES!"
+				# Early return? Maybe just let it flow with 0.
+		
+		elif attacker.has_method("has_perk") and attacker.has_perk("vigilance"):
+			breakdown += " | Vigilance (No Penalty)"
+		else:
+			hit_chance *= 0.8
+			breakdown += " | Reaction (x0.8)"
 
 	# Use Weapon Range if avail, otherwise default to Unit stats or Basic
 	var weapon_range = 3
@@ -90,17 +100,50 @@ static func calculate_hit_chance(
 		hit_chance -= penalty
 		breakdown += " | Dist Pen: -" + str(penalty)
 
+	# 2. Reaction Penalty / Bonus
+	if is_reaction:
+		# Base Overwatch penalty: x0.7 Aim usually in XCOM, or -10.
+		# Let's say -10 flat for now.
+		var penalty = 10
+		hit_chance -= penalty
+		breakdown += " | Reaction: -" + str(penalty)
+		
+		# [NEW] Check for Vigilance / Overwatch Bonus
+		if "overwatch_aim_bonus" in attacker and attacker.overwatch_aim_bonus > 0:
+			hit_chance += attacker.overwatch_aim_bonus
+			breakdown += " | Vigilance: +" + str(attacker.overwatch_aim_bonus)
+			
 	# 3. Target Defense (Innate)
 	var targ_def = target.defense if "defense" in target else 0 # Barrels 0
+	
+	# Sit & Stay Check - handled via Status Effect altering Def directly now
+	# if target.has_method("has_perk") and target.has_perk("sit_stay"):
+	# 	if "has_attacked" in target and not target.has_attacked:
+	# 		targ_def += 20
+	# 		breakdown += " | Sit&Stay Def: -20"
+
 	if targ_def > 0:
 		hit_chance -= targ_def
 		breakdown += " | Def: -" + str(targ_def)
+		
+	# 3b. Aura Bonuses (Pack Leader) for Attacker
+	if attacker.has_method("get_aura_bonuses"):
+		var auras = attacker.get_aura_bonuses()
+		if auras.get("aim", 0) > 0:
+			hit_chance += auras["aim"]
+			breakdown += " | Aura: +" + str(auras["aim"])
 
 	# 4. Cover Penalty
 	# Use new helper to check adjacent obstacles
 	var cover_height = get_cover_height_at_pos(target_grid_pos, attack_pos, grid_manager)
 
 	var cover_pen = 0
+	
+	# Low Profile (Scout Perk)
+	if target.has_method("has_perk") and target.has_perk("scout_low_profile"):
+		if cover_height >= 1.0 and cover_height < 2.0:
+			cover_height = 2.0
+			breakdown += " (Low Profile)"
 
 	if cover_height >= 2.0:  # Full Cover
 		cover_pen = COVER_PENALTY_FULL
@@ -257,11 +300,20 @@ static func execute_attack(
 		else:
 			return "FRIENDLY"
 
+	if "has_attacked" in attacker:
+		attacker.has_attacked = true
+
 	SignalBus.on_combat_action_started.emit(attacker, target, "Attack", target.position)
 
 	var result = calculate_hit_chance(
 		attacker, target, grid_manager, Vector2(-999, -999), is_reaction
 	)
+
+	# Increment Reflexes Counter if applicable
+	if is_reaction and target.has_method("has_perk") and target.has_perk("scout_lightning_reflexes"):
+		if "overwatch_shots_dodged_this_turn" in target:
+			target.overwatch_shots_dodged_this_turn += 1
+
 	var chance = result["hit_chance"]
 
 	print(
@@ -308,6 +360,10 @@ static func execute_attack(
 				target.take_sanity_damage(15)
 				print(target.name, " took CRIT SANITY DAMAGE!")
 
+		# 5. On-Hit Effects (Perks)
+		# (Go For Ankles is now an active ability, so no auto-passive here)
+
+				
 		target.take_damage(int(final_damage))
 
 		# VFX: Impact

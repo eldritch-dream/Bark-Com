@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "scout_run_and_gun"
+display_name = "Run & Gun"
+description = "[color=gold]Active Ability[/color]: Gain [color=cyan]+1 Action Point[/color]. Allows moving after shooting or taking an extra action. Cooldown: 3 Turns."
+icon = null
+metadata = {
+"active_ability": "RunAndGun"
+}

@@ -11,6 +11,7 @@ var kibble_label: Label
 
 var active_mission_node: Node = null
 var content_area: VBoxContainer
+var saved_roster_scroll: int = 0
 
 
 func _process(_delta):
@@ -57,7 +58,7 @@ func _setup_base_settings():
 
 func _connect_signals():
 	SignalBus.on_kibble_changed.connect(_on_kibble_changed)
-	SignalBus.on_unit_recruited.connect(_on_unit_recruited)
+	SignalBus.on_unit_recruited.connect(func(_unit): _show_roster())
 	SignalBus.on_mission_selected.connect(_on_mission_start_signal)
 	SignalBus.on_skin_changed.connect(_on_skin_changed_refresh)
 
@@ -577,6 +578,12 @@ func _start_mission():
 
 
 func _show_roster():
+	# Capture scroll if not already saved (allows external overrides)
+	if saved_roster_scroll == 0:
+		var old_scroll = content_area.find_child("RosterScroll", true, false)
+		if old_scroll and old_scroll is ScrollContainer:
+			saved_roster_scroll = old_scroll.scroll_vertical
+
 	_clear_content()
 	_hide_mascot()
 	
@@ -622,6 +629,7 @@ func _show_roster():
 	right_col.add_child(title)
 
 	var scroll = ScrollContainer.new()
+	scroll.name = "RosterScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_col.add_child(scroll)
@@ -676,6 +684,14 @@ func _show_roster():
 	recruit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	recruit_btn.pressed.connect(_on_recruit_pressed)
 	right_col.add_child(recruit_btn)
+	
+	# Restore Scroll Position
+	if saved_roster_scroll > 0:
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if is_instance_valid(scroll):
+			scroll.scroll_vertical = saved_roster_scroll
+		saved_roster_scroll = 0
 
 
 func _on_recruit_pressed():
@@ -688,7 +704,7 @@ func _on_recruit_pressed():
 func _recruit_unit(cost):
 	if game_manager.recruit_new_dog(cost):
 		_log("Recruited new dog!")
-		_show_roster()
+		# _show_roster() # Handled by on_unit_recruited signal
 		# _update_header() # Assuming this is handled by signal
 	else:
 		_log("Not enough Kibble!")
@@ -992,11 +1008,14 @@ func _start_promotion(corgi_data: Dictionary):
 	var class_data = null
 	if ResourceLoader.exists(path):
 		class_data = load(path)
+	else:
+		_log("Development note: ClassData for " + cls_name + " not found at " + path, "red")
 
 	if not class_data:
-		_log("No Class Data found for " + cls_name)
+		# _log("No Class Data found for " + cls_name)
 		# Just simple Stat Level Up? allow it?
-		corgi_data["level"] += 1
+		# For Recruit/New System, we might not have ClassData yet.
+		pass
 		corgi_data["xp"] -= (corgi_data["level"] - 1) * 100  # Reset XP or keep accumulated? XCOM keeps accumulated total usually.
 		# But here 'needed' was current_level * 100.
 		# Let's subtract cost? Or just increment level is enough if Next Needed increases.
@@ -1009,28 +1028,54 @@ func _start_promotion(corgi_data: Dictionary):
 
 	# 2. Check Tree
 	var next_rank = corgi_data["level"] + 1
-	var choices = class_data.rank_tree.get(next_rank, [])
+	var choices = [] 
+	
+	# Determine Class Tree
+	var tree_path = "res://assets/data/trees/" + cls_name + "BarkTree.tres"
+	if ResourceLoader.exists(tree_path):
+		var tree = load(tree_path) # Type: ClassBarkTree
+		if tree.class_id == cls_name: # Ensure ID matches
+			if next_rank == 2: choices = tree.rank_2_options
+			elif next_rank == 4: choices = tree.rank_4_options
+			elif next_rank == 6: choices = tree.rank_6_options
 
 	if choices.size() > 0:
 		# Show Selection UI
-		var popup = load("res://scripts/ui/PerkSelectionUI.gd").new()
+		var popup = load("res://scripts/ui/TalentSelectPopup.gd").new()
 		ui_container.add_child(popup)
-		popup.set_anchors_preset(Control.PRESET_CENTER)
-		popup.show_options(next_rank, choices)
-
-		popup.perk_selected.connect(func(talent): _apply_promotion(corgi_data, talent))
+		# Center on screen (requires parent to be full rect)
+		popup.set_anchors_preset(Control.PRESET_CENTER) 
+		# If center doesn't work due to container, forcing position:
+		popup.set_position(Vector2(1920/2 - 300, 1080/2 - 200))
+		
+		popup.setup_choices(next_rank, choices)
+		popup.perk_selected.connect(func(perk_id): _apply_promotion(corgi_data, perk_id))
 	else:
 		# Just Stats
-		_apply_promotion(corgi_data, null)
+		_apply_promotion(corgi_data, "")
 
 
-func _apply_promotion(corgi_data: Dictionary, talent: TalentNode):
+func _apply_promotion(corgi_data: Dictionary, perk_id: String = ""):
+	# Manually capture scroll before any changes
+	var scroll = content_area.find_child("RosterScroll", true, false)
+	if scroll and scroll is ScrollContainer:
+		saved_roster_scroll = scroll.scroll_vertical
+		
 	corgi_data["level"] += 1
-	if talent:
-		if not corgi_data.has("unlocked_talents"):
-			corgi_data["unlocked_talents"] = []
-		corgi_data["unlocked_talents"].append(talent.resource_path)  # Store Path or ID? Path is safer for loading.
-		_log("Promoted! Learned: " + talent.display_name)
+	if perk_id != "":
+		# Unlock via Manager
+		if BarkTreeManager:
+			BarkTreeManager.unlock_perk(corgi_data["name"], perk_id)
+			
+		# Immediate Effects (Dict Update)
+		if perk_id == "recruit_good_boy":
+			# Boost current sanity
+			# Default max is 100, new max is 110.
+			var current = corgi_data.get("sanity", 100)
+			corgi_data["sanity"] = min(current + 10, 110)
+			_log("Good Boy! +10 Sanity applied.")
+
+		_log("Promoted! Learned perk: " + perk_id)
 	else:
 		_log("Promoted to Rank " + str(corgi_data["level"]))
 
