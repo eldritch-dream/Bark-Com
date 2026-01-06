@@ -1466,7 +1466,7 @@ func _show_memorial():
 	
 	# --- LEFT: Mascot (Nun) ---
 	var portrait_container = PanelContainer.new()
-	portrait_container.custom_minimum_size = Vector2(400, 0)
+	portrait_container.custom_minimum_size = Vector2(600, 0)
 	portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(portrait_container)
 	
