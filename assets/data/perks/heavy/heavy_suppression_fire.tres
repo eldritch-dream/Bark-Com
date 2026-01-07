@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "heavy_suppression_fire"
+display_name = "Suppress"
+description = "[color=gold]Active Ability[/color]: Fire a barrage that pins down targets in an area, reducing their Mobility and Accuracy."
+icon = null
+metadata = {
+"active_ability": "SuppressionFire"
+}

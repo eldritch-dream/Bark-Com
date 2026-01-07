@@ -156,6 +156,11 @@ static func calculate_hit_chance(
 			cover_pen -= 10
 			breakdown += " (Corgi vs Low Cover)"
 
+	# Heavy Perk: Entrenched
+	if cover_pen > 0 and target.has_method("has_perk") and target.has_perk("heavy_entrenched"):
+		cover_pen *= 2
+		breakdown += " [Entrenched!]"
+
 	if cover_pen > 0:
 		# Reaction Fire ignores half of cover (Caught moving)
 		if is_reaction:
@@ -176,14 +181,19 @@ static func calculate_hit_chance(
 		targ_elev = grid_manager.get_tile_data(target_grid_pos).get("elevation", 0)
 
 	var crit_bonus = 0
+	if "crit_chance" in attacker:
+		crit_bonus += attacker.crit_chance
 
 	if att_elev > targ_elev:
 		hit_chance += 15
-		crit_bonus = 10
+		crit_bonus += 10
 		breakdown += " | High Ground: +15"
 	elif att_elev < targ_elev:
 		hit_chance -= 10
 		breakdown += " | Low Ground: -10"
+		
+	if crit_bonus > 0:
+		breakdown += " | Crit: " + str(crit_bonus) + "%"
 
 	# Clamp
 	hit_chance = clamp(hit_chance, 5, 100)
@@ -343,9 +353,12 @@ static func execute_attack(
 	if attacker.primary_weapon:
 		damage = attacker.primary_weapon.damage
 
-	# Crit chance is not defined in the original context, assuming 0 for now
-	# If crit mechanics are to be added, crit_chance needs to be calculated.
-	var crit_chance = 5  # Base Crit
+	# 4. Critical Chance
+	var crit_chance = 0 # Base
+	if "crit_chance" in attacker:
+		crit_chance = attacker.crit_chance
+		
+	# Add bonuses from hit calculation (e.g. High Ground)
 	if result.has("crit_chance"):
 		crit_chance += result["crit_chance"]
 

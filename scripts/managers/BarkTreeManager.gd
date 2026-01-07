@@ -18,6 +18,10 @@ func unlock_perk(unit_guid: String, perk_id: String):
 		SignalBus.on_perk_learned.emit(unit_guid, perk_id)
 		SignalBus.on_unit_stats_changed.emit(null) # Null unit forces global update? Or pass unit if we had it.
 
+func reset_state():
+	unlocked_perks.clear()
+	print("BarkTreeManager: State Reset.")
+
 func has_perk(unit_guid: String, perk_id: String) -> bool:
 	if unlocked_perks.has(unit_guid):
 		return perk_id in unlocked_perks[unit_guid]

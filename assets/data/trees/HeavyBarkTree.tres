@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ClassBarkTree" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassBarkTree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://assets/data/perks/heavy/heavy_bullet_sponge.tres" id="2_sponge"]
+[ext_resource type="Resource" path="res://assets/data/perks/heavy/heavy_lmg_mastery.tres" id="3_lmg"]
+[ext_resource type="Resource" path="res://assets/data/perks/heavy/heavy_suppression_fire.tres" id="4_suppress"]
+[ext_resource type="Resource" path="res://assets/data/perks/heavy/heavy_entrenched.tres" id="5_entrench"]
+[ext_resource type="Resource" path="res://assets/data/perks/heavy/heavy_rocket_launcher.tres" id="6_rocket"]
+
+[resource]
+script = ExtResource("1_tree")
+class_id = "Heavy"
+rank_2_options = Array[Resource]([ExtResource("2_sponge"), ExtResource("3_lmg")])
+rank_4_options = Array[Resource]([ExtResource("4_suppress"), ExtResource("5_entrench")])
+rank_6_options = Array[Resource]([ExtResource("6_rocket")])

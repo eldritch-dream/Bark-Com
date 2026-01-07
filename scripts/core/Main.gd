@@ -610,9 +610,8 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 		if data.get("primary_weapon") != null:
 			unit.primary_weapon = data["primary_weapon"]
 
-		# Cosmetic Persistence
-		if data.has("cosmetics"):
-			unit.restore_from_snapshot(data)
+		# Restore Persistence (HP, XP, Cosmetics)
+		unit.restore_from_snapshot(data)
 
 		spawned_units.append(unit)
 		spawn_offset += 1
@@ -1424,8 +1423,35 @@ func _on_mouse_hover(grid_pos: Vector2):
 				gv.preview_path(world_points, color)
 		else:
 			gv.clear_preview_path()
+
+	elif current_input_state == InputState.ABILITY_TARGETING:
+		gv.clear_preview_path()
+		if selected_ability and "aoe_radius" in selected_ability:
+			var r = selected_ability.aoe_radius
+			var center_world = grid_manager.get_world_position(grid_pos)
+			var aoe_tiles = []
+			
+			# Optimization: limit search to bounding box
+			var r_tiles = ceil(r / grid_manager.TILE_SIZE) + 1
+			for x in range(grid_pos.x - r_tiles, grid_pos.x + r_tiles + 1):
+				for y in range(grid_pos.y - r_tiles, grid_pos.y + r_tiles + 1):
+					var t = Vector2(x, y)
+					if grid_manager.grid_data.has(t):
+						var t_world = grid_manager.get_world_position(t)
+						# Ignore Y for radius? Or use 3D distance?
+						# Cylinder check usually better for gameplay (ignore height diff for selection?)
+						# But physics uses sphere. Let's use horizontal distance to be safe + height tolerance.
+						var dist_h = Vector2(center_world.x, center_world.z).distance_to(Vector2(t_world.x, t_world.z))
+						if dist_h <= r:
+							aoe_tiles.append(t)
+			
+			gv.preview_aoe(aoe_tiles, Color(1, 0.4, 0.4, 0.4))
+		else:
+			gv.clear_preview_aoe()
+
 	else:
 		gv.clear_preview_path()
+		gv.clear_preview_aoe()
 
 
 
@@ -1439,6 +1465,7 @@ func _clear_targeting():
 		gv.clear_highlights()
 		gv.clear_preview_path()
 		gv.clear_hover_cursor()
+		gv.clear_preview_aoe()
 	game_ui.log_message("Command Cancelled.")
 
 

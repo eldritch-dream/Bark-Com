@@ -50,6 +50,8 @@ var max_sanity: int:
 		SignalBus.on_unit_stats_changed.emit(self)
 @export var accuracy: int = 65
 @export var defense: int = 10
+@export var armor: int = 0
+@export var crit_chance: int = 0
 @export var tech_score: int = 0
 
 @export_group("Vision")
@@ -269,12 +271,34 @@ func apply_class_stats(cls_name: String):
 		var unlocked = BarkTreeManager.get_unlocked_perks(name)
 		print("DEBUG_UNIT: Unlocked Perks: ", unlocked)
 		
-		if BarkTreeManager.has_perk(name, "scout_run_and_gun"):
-			print("DEBUG_UNIT: Injecting Run & Gun")
-			abilities.append(load("res://scripts/abilities/RunAndGunAbility.gd").new())
-		if BarkTreeManager.has_perk(name, "scout_go_for_ankles"):
-			print("DEBUG_UNIT: Injecting Go For Ankles")
-			abilities.append(load("res://scripts/abilities/GoForAnklesAbility.gd").new())
+		# Iterate all unlocked perks to find specific behaviors or re-inject logic?
+		# learn_talent() handles ability injection safely (checks for duplicates).
+		for perk_id in unlocked:
+			# We need to load the resource to call learn_talent, OR logic inside learn_talent handles ID?
+			# learn_talent takes a Resource.
+			# We need to find the resource for the ID.
+			# BarkTreeManager doesn't seem to have a lookup for ID -> Resource easily available here?
+			# Actually, we can assume the path convention "heavy_perkname" or "rank_x..." but they are renamed now.
+			# Better approach: BarkTreeManager should perhaps provide the resource or we search?
+			# Or we rely on the fact that 'learn_talent' injects abilities when they are learned.
+			# But on load, we need to re-apply.
+			
+			# HACK: Construct path based on convention or search known paths?
+			# The paths are inconsistent (scout/scout_... vs heavy/heavy_... vs recruit/recruit_...).
+			# Let's try to find it.
+			var possible_folders = ["recruit", "scout", "heavy", "paramedic", "grenadier", "sniper"]
+			var found_res = null
+			for folder in possible_folders:
+				var p = "res://assets/data/perks/" + folder + "/" + perk_id + ".tres"
+				if ResourceLoader.exists(p):
+					found_res = load(p)
+					break
+			
+			if found_res:
+				learn_talent(found_res)
+			else:
+				print("DEBUG_UNIT: Could not find resource for perk ID: ", perk_id)
+
 	else:
 		print("DEBUG_UNIT: BarkTreeManager not found!")
 
@@ -362,12 +386,35 @@ func take_damage(amount: int):
 		
 	# Convert back to int.
 	var damage_int = int(round(final_amount))
-	if damage_int < 1 and amount > 0: damage_int = 1 # Minimum 1 if hit occurred
+	
+	# Armor Reduction
+	# Shredded Armor logic will be handled by modifiers or status effects altering 'armor' before this call?
+	# Or if 'armor' is just a variable, we use it directly.
+	# "1 armor prevents 1 damage"
+	var effective_armor = armor
+	if modifiers.has("armor_change"):
+		effective_armor += modifiers["armor_change"]
+	effective_armor = max(0, effective_armor) # Cannot have negative effective armor
+	
+	damage_int -= effective_armor
+	
+	if damage_int < 1 and amount > 0: damage_int = 1 # Minimum 1 rule? Or can armor block fully? 
+	# "1 armor prevents 1 damage". Usually allows 0 damage.
+	# "(-2 flat armor min of 0" from request implies armor can be reduced.
+	# If Damage < Armor, Damage = 0? Or always min 1?
+	# User didn't specify min 1. XCOM usually allows 0 dmg with enough armor? 
+	# Let's assume min 1 for now unless "Invulnerable". 
+	# Actually, usually armor just reduces. If armor > damage, 0 damage.
+	if damage_int < 0: damage_int = 0
+	# Wait, usually game dsign prefers min 1 for "Hit".
+	# User Request: "1 armor prevents 1 damage" 
+	# Let's enforce min 1 for now to prevent unkillable units, unless explicitly 0.
+	if damage_int < 1 and amount > 0: damage_int = 1
 	
 	var old_hp = current_hp
 	current_hp = max(0, current_hp - damage_int)
 	if DEBUG_UNIT:
-		print(name, " took ", damage_int, " damage (Raw:", amount, "). HP: ", current_hp, "/", max_hp)
+		print(name, " took ", damage_int, " damage (Raw:", amount, " Armor:", effective_armor, "). HP: ", current_hp, "/", max_hp)
 
 	SignalBus.on_unit_health_changed.emit(self, old_hp, current_hp)
 	SignalBus.on_unit_stats_changed.emit(self)
@@ -377,9 +424,10 @@ func take_damage(amount: int):
 		if DEBUG_UNIT:
 			print(name, " lost Overwatch due to damage.")
 
-	SignalBus.on_request_floating_text.emit(position, str(damage_int), Color.RED)
+	SignalBus.on_request_floating_text.emit(global_position + Vector3(0, 2, 0), str(damage_int), Color.RED)
 
 	if current_hp <= 0:
+		# Ensure we don't process further logic if dead
 		die()
 
 	# Duplicate take_sanity_damage removed. Merged below.
@@ -664,14 +712,39 @@ func learn_talent(perk_res: Resource):
 		else:
 			print(" - ERROR: Ability script not found at ", script_path)
 
+	recalculate_stats() # Apply passive bonuses immediately
 	SignalBus.on_unit_stats_changed.emit(self)
 
 
 func recalculate_stats():
-	# Re-apply level bonuses (retroactive)
-	var bonus_hp = (rank_level - 1) * 2
-	max_hp += bonus_hp
-	current_hp = min(current_hp + bonus_hp, max_hp)
+	# 1. Reset to Base (from ClassData if available)
+	if current_class_data:
+		max_hp = current_class_data.base_stats.get("max_hp", 10)
+		accuracy = current_class_data.base_stats.get("accuracy", 65)
+		defense = current_class_data.base_stats.get("defense", 10)
+		armor = current_class_data.base_stats.get("armor", 0)
+		crit_chance = current_class_data.base_stats.get("crit_chance", 0)
+		# Mobility handled via getter properties mostly, but base is set:
+		base_mobility = current_class_data.base_stats.get("mobility", 6)
+	
+	# 2. Level Bonuses
+	var bonus_hp_level = (rank_level - 1) * 2
+	max_hp += bonus_hp_level
+	
+	# 3. Perk Bonuses (Hardcoded for now)
+	if has_perk("heavy_bullet_sponge"):
+		# Previous: max_hp += 4, defense += 1
+		# New: Add 1 flat armor
+		armor += 1
+		print(name, " applies Bullet Sponge (+1 Armor)")
+		
+	if has_perk("heavy_lmg_mastery"):
+		accuracy += 10
+		crit_chance += 5
+		print(name, " applies LMG Mastery (+10 Acc, +5% Crit)")
+	
+	# Clamp Current
+	current_hp = min(current_hp, max_hp)
 
 
 func _check_level_up():
@@ -941,9 +1014,6 @@ func get_data_snapshot() -> Dictionary:
 	return {
 		"name": name,
 		"class": cls_name,
-		"level": rank_level,
-		"xp": current_xp,
-		"hp": current_hp,
 		"max_hp": max_hp,
 		"sanity": current_sanity,
 		"fallen": is_dead,
@@ -952,6 +1022,31 @@ func get_data_snapshot() -> Dictionary:
 
 
 func restore_from_snapshot(data: Dictionary):
+	if data.has("name"): name = data["name"]
+	if data.has("class"): unit_class = data["class"]
+	if data.has("level"): rank_level = int(data["level"])
+	if data.has("xp"): current_xp = int(data["xp"])
+	if data.has("max_hp"): max_hp = int(data["max_hp"])
+	if data.has("hp"): current_hp = int(data["hp"])
+	if data.has("sanity"): current_sanity = int(data["sanity"])
+	if data.has("fallen"): is_dead = data["fallen"]
+	
 	if data.has("cosmetics"):
 		equipped_cosmetics = data["cosmetics"]
 		update_cosmetics()
+		
+	# Recalculate derived stats (Applying level bonuses to Max HP again? No.)
+	# If snapshot has max_hp, we trust it? 
+	# OR we trust recalculate_stats?
+	# Users requested "Correct numbers".
+	# If we trust snapshot, we carry over the "Explosion" bug if it exists in save.
+	# Safe approach: Restore Level/Class, then Recalculate Stats from scratch to match rules.
+	# Then clamp HP to what was saved (or relative damage).
+	
+	recalculate_stats()
+	# Apply damage calculated from snapshot difference?
+	# If save said 10/46. Recalc says 46. We set current to 10.
+	if data.has("hp"):
+		current_hp = int(data["hp"])
+		
+	SignalBus.on_unit_stats_changed.emit(self)

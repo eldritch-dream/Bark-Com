@@ -21,16 +21,40 @@ func _ready():
 	_setup_ui()
 	if SignalBus.has_signal("on_perk_learned"):
 		SignalBus.on_perk_learned.connect(_on_perk_learned)
+	if SignalBus.has_signal("on_unit_stats_changed"):
+		SignalBus.on_unit_stats_changed.connect(_on_stats_changed)
+
+func _on_stats_changed(u):
+	# Handle Object or Dictionary
+	var u_name = ""
+	if u is Object and u.has_method("get_class"):
+		u_name = u.name
+	elif u is Dictionary:
+		u_name = u.get("name", "")
+		
+	var my_name = ""
+	if current_raw_data is Object and current_raw_data.has_method("get_class"):
+		my_name = current_raw_data.name
+	elif current_raw_data is Dictionary:
+		my_name = current_raw_data.get("name", "")
+		
+	if u_name != "" and u_name == my_name:
+		setup(u)
+
 
 func _on_perk_learned(u_name, p_id):
 	# Refresh if we are viewing this unit
 	if current_raw_data:
-		var my_name = current_raw_data.get("name", "")
+		var my_name = ""
+		if current_raw_data is Object and current_raw_data.has_method("get_class"):
+			my_name = current_raw_data.name
+		elif current_raw_data is Dictionary:
+			my_name = current_raw_data.get("name", "")
+			
 		if my_name == u_name:
 			setup(current_raw_data)
 
 func _setup_ui():
-	# Main Panel Styling
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)
 	style.border_width_left = 2
@@ -247,6 +271,7 @@ func setup(data):
 	var default_max_sanity = 100
 	var default_defense = 10
 	var default_accuracy = 65
+	var default_max_hp = 10
 	
 	var cls_name = d.get("class", "Recruit")
 	var path = "res://assets/data/classes/" + cls_name + "Data.tres"
@@ -257,10 +282,15 @@ func setup(data):
 			default_max_sanity = res.base_stats.get("max_sanity", 100)
 			default_defense = res.base_stats.get("defense", 10)
 			default_accuracy = res.base_stats.get("accuracy", 65)
+			default_max_hp = res.base_stats.get("max_hp", 10)
 	
 	# Mobility
 	if base_spd > default_mobility:
 		spd = "[color=green]" + spd + "[/color]"
+
+	# HP (Max)
+	if base_max_hp > default_max_hp:
+		hp = "[color=green]" + hp + "[/color]"
 
 	# Sanity (Max)
 	if base_max_san > default_max_sanity:
@@ -290,6 +320,13 @@ func setup(data):
 	txt += "[cell]Defense:[/cell][cell]" + def_str + "[/cell]"
 	txt += "[cell]Vision:[/cell][cell]" + vis + "[/cell]"
 	txt += "[cell]Tech:[/cell][cell]" + tch + "[/cell]"
+	
+	# ROW 2 (Armor / Crit)
+	var armor = str(d.get("armor", 0))
+	var crit = str(d.get("crit", 0)) + "%"
+	txt += "[cell]Armor:[/cell][cell][color=gray]" + armor + "[/color][/cell]"
+	txt += "[cell]Crit:[/cell][cell][color=red]" + crit + "[/color][/cell]"
+	
 	txt += "[/table]"
 	stats_label.text = txt
 
@@ -342,10 +379,20 @@ func setup(data):
 
 func _parse_data(data) -> Dictionary:
 	var d = {}
+	
+	# 1. READ RAW DATA (Object or Dict)
+	var raw_class = "Recruit"
+	var raw_level = 1
+	var u_name = "Unknown"
+	
 	if data is Object and data.has_method("get_class"): 
-		d["name"] = data.unit_name
-		d["class"] = data.unit_class
-		d["level"] = data.rank_level
+		u_name = data.unit_name
+		raw_class = data.unit_class
+		raw_level = data.rank_level
+		# For active objects, trust their current state (it should be correct in-game)
+		d["name"] = u_name
+		d["class"] = raw_class
+		d["level"] = raw_level
 		d["hp"] = data.current_hp; d["max_hp"] = data.max_hp
 		d["sanity"] = data.current_sanity; d["max_sanity"] = data.max_sanity
 		d["ap"] = data.max_ap
@@ -356,38 +403,105 @@ func _parse_data(data) -> Dictionary:
 		d["primary_weapon"] = data.primary_weapon
 		d["unlocked_talents"] = []
 		if BarkTreeManager:
-			d["unlocked_talents"] = BarkTreeManager.get_unlocked_perks(data.name)
+			d["unlocked_talents"] = BarkTreeManager.get_unlocked_perks(u_name)
 		d["status"] = "Active"
 		if "is_dead" in data and data.is_dead: d["status"] = "KIA"
 		elif "current_panic_state" in data and data.current_panic_state > 0: d["status"] = "Panicked"
 		d["tech"] = data.tech_score if "tech_score" in data else 0
+		d["armor"] = data.armor if "armor" in data else 0
+		d["crit"] = data.crit_chance if "crit_chance" in data else 0
 		
+		# Active Units don't need simulation, they are ALIVE.
+		# Just load bonds.
 		d["bonds"] = []
 		if GameManager:
-			d["bonds"] = GameManager.get_active_bonds_for_unit(d["name"])
+			d["bonds"] = GameManager.get_active_bonds_for_unit(u_name)
+			
+		return d
+
 	elif data is Dictionary:
-		d = data
-		if not "class" in d: d["class"] = "Recruit"
-		if not "level" in d: d["level"] = 1
-		# Force Int Casts
-		d["hp"] = int(d.get("hp", 10)); d["max_hp"] = int(d.get("max_hp", 10))
-		d["sanity"] = int(d.get("sanity", 100)); d["max_sanity"] = int(d.get("max_sanity", 100))
-		d["ap"] = int(d.get("ap", 3))
-		d["mobility"] = int(d.get("mobility", 6))
-		d["accuracy"] = int(d.get("accuracy", 65))
-		d["defense"] = int(d.get("defense", 0))
-		d["vision"] = int(d.get("vision", 4))
-		d["tech"] = int(d.get("tech", 0))
+		d = data.duplicate(true)
+		u_name = d.get("name", "Unknown")
+		raw_class = d.get("class", "Recruit")
+		raw_level = int(d.get("level", 1))
 		
-		# Objects/Arrays
+		# 2. RECONSTRUCT FROM BASE (Fixes Explosion)
+		# Load Class Data
+		var path = "res://assets/data/classes/" + raw_class + "Data.tres"
+		var base_stats = {
+			"max_hp": 10, "accuracy": 65, "defense": 0, "mobility": 6, "max_sanity": 100, 
+			"crit_chance": 0, "armor": 0
+		}
+		
+		if ResourceLoader.exists(path):
+			var res = load(path)
+			if res and "base_stats" in res:
+				var bs = res.base_stats
+				if "max_hp" in bs: base_stats["max_hp"] = bs.max_hp
+				if "accuracy" in bs: base_stats["accuracy"] = bs.accuracy
+				if "defense" in bs: base_stats["defense"] = bs.defense
+				if "mobility" in bs: base_stats["mobility"] = bs.mobility
+				if "max_sanity" in bs: base_stats["max_sanity"] = bs.max_sanity
+				# Check for new stats in ClassData if added? 
+				# Assuming ClassData structure matches Unit.gd expectations.
+		
+		# 3. APPLY CALCULATED STATS
+		d["name"] = u_name
+		d["class"] = raw_class
+		d["level"] = raw_level
+		
+		# Base
+		d["max_hp"] = base_stats["max_hp"]
+		d["accuracy"] = base_stats["accuracy"]
+		d["defense"] = base_stats["defense"]
+		d["mobility"] = base_stats["mobility"]
+		d["max_sanity"] = base_stats["max_sanity"]
+		d["armor"] = 0
+		d["crit"] = 0
+		
+		# Level Scaling (HP)
+		var level_bonus_hp = (raw_level - 1) * 2
+		d["max_hp"] += level_bonus_hp
+		
+		# 4. APPLY PERKS
+		d["unlocked_talents"] = []
+		if BarkTreeManager:
+			d["unlocked_talents"] = BarkTreeManager.get_unlocked_perks(u_name)
+			
+		for perk_id in d["unlocked_talents"]:
+			match perk_id:
+				"heavy_bullet_sponge":
+					d["armor"] += 1
+				"heavy_lmg_mastery", "rank_2_lmg_mastery", "lmg_mastery":
+					d["accuracy"] += 10
+					d["crit"] += 5
+					d["description"] = d.get("description", "") + " [LMG Mastery Active]"
+				"recruit_cardio":
+					d["mobility"] += 2
+				"recruit_good_boy":
+					d["max_sanity"] += 10
+					
+		# 5. RETAIN STATE
+		# current_hp/sanity should be clamped to new max?
+		# Or just read from memory. 
+		# If Memory is corrupted (122), we clamp it.
+		var raw_cur_hp = int(data.get("hp", 10))
+		if raw_cur_hp > d["max_hp"]: raw_cur_hp = d["max_hp"] # Fix current HP explosion too
+		d["hp"] = raw_cur_hp
+		
+		d["sanity"] = int(data.get("sanity", 100))
+		
+		d["ap"] = int(data.get("ap", 3))
+		d["vision"] = int(data.get("vision", 4))
+		d["tech"] = int(data.get("tech", 0))
+		
 		if not "primary_weapon" in d: d["primary_weapon"] = null
-		if not "unlocked_talents" in d: d["unlocked_talents"] = []
 		if not "status" in d: d["status"] = "Ready"
 		
-		# FORCE LOAD BONDS
 		d["bonds"] = []
 		if GameManager:
-			d["bonds"] = GameManager.get_active_bonds_for_unit(d["name"])
+			d["bonds"] = GameManager.get_active_bonds_for_unit(u_name)
+			
 	return d
 
 func _on_view_tree_clicked():

@@ -391,3 +391,42 @@ func clear_hover_cursor():
 	var existing = get_node_or_null("HoverCursor")
 	if existing:
 		existing.free()
+
+
+func preview_aoe(tiles: Array, color: Color = Color(1, 0, 0, 0.4)):
+	clear_preview_aoe()
+	
+	if tiles.is_empty():
+		return
+		
+	var container = Node3D.new()
+	container.name = "PreviewAoE"
+	add_child(container)
+	
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color.a = 0.4 
+	
+	var mesh = BoxMesh.new()
+	mesh.size = Vector3(1.6, 0.2, 1.6) # Slightly thicker/distinct
+	
+	for tile_entry in tiles:
+		var world_pos = Vector3.ZERO
+		if tile_entry is Vector2:
+			if grid_manager:
+				world_pos = grid_manager.get_world_position(tile_entry)
+		elif tile_entry is Dictionary and tile_entry.has("world_pos"):
+			world_pos = tile_entry["world_pos"]
+			
+		if world_pos != Vector3.ZERO:
+			var mi = MeshInstance3D.new()
+			mi.mesh = mesh
+			mi.material_override = mat
+			mi.position = world_pos + Vector3(0, 0.7, 0) # Raise above cursor
+			container.add_child(mi)
+
+func clear_preview_aoe():
+	var existing = get_node_or_null("PreviewAoE")
+	if existing:
+		existing.free()

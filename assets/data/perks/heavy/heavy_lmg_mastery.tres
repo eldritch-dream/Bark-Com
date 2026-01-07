@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "heavy_lmg_mastery"
+display_name = "LMG Mastery"
+description = "[color=green]Passive[/color]: Gain +10 Accuracy and +5% Crit Chance when using Heavy Weapons (or essentially base stat boost for now)."
+icon = null
+metadata = {
+"stat_bonus": {
+    "accuracy": 10,
+    "crit_chance": 5
+}
+}

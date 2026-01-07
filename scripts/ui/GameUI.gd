@@ -450,8 +450,8 @@ func _refresh_action_bar(unit):
 
 	# Always add basic Move/Attack/Wait
 	if unit and "faction" in unit and unit.faction == "Player":
-		_create_action_button("Move (1 AP)", func(): emit_signal("action_requested", "Move"))
-		_create_action_button("Attack (1 AP)", func(): emit_signal("action_requested", "Attack"))
+		_create_action_button("Move\n(1 AP)", func(): emit_signal("action_requested", "Move"))
+		_create_action_button("Attack\n(1 AP)", func(): emit_signal("action_requested", "Attack"))
 
 		# Dynamic Abilities
 		for ability in unit.abilities:
@@ -464,13 +464,13 @@ func _refresh_action_bar(unit):
 
 				var btn_text = ability.display_name
 				if ability.ap_cost > 0:
-					btn_text += " (" + str(ability.ap_cost) + " AP)"
+					btn_text += "\n(" + str(ability.ap_cost) + " AP)"
 
 				var btn = _create_action_button(btn_text, func(): _on_ability_clicked(ability))
 
 				if not ability.can_use():
 					btn.disabled = true
-					btn.text += " (CD: %d)" % ability.current_cooldown
+					btn.text += "\n(CD: %d)" % ability.current_cooldown
 
 		# Context Action: Retrieve
 		_check_retrieve_action(unit)
@@ -480,7 +480,7 @@ func _refresh_action_bar(unit):
 			for i in range(unit.inventory.size()):
 				var item = unit.inventory[i]
 				if item:
-					var btn_text = item.display_name + " (1 AP)"
+					var btn_text = item.display_name + "\n(1 AP)"
 					var btn = _create_action_button(btn_text, func(): _on_item_clicked(item, i))
 					if unit.current_ap < 1:
 						btn.disabled = true
@@ -500,7 +500,7 @@ func _check_retrieve_action(unit):
 				if obj.name == "Lost Human":
 					label = "Rescue"
 				_create_action_button(
-					label + " (1 AP)", func(): emit_signal("action_requested", "Interact")
+					label + "\n(1 AP)", func(): emit_signal("action_requested", "Interact")
 				)
 				return
 
@@ -798,20 +798,23 @@ func show_hit_chance(percent: int, breakdown: String, target_pos: Vector3 = Vect
 		hit_chance_label.modulate = Color.YELLOW
 	else:
 		hit_chance_label.modulate = Color.RED
-
-	# Clear old children from breakdown vbox
-	for c in hit_chance_breakdown.get_children():
-		c.queue_free()
-
-	# Parse Breakdown String (Expected Format: "Base: 80 | Cover: -20")
-	var parts = breakdown.split("|")
-	for p in parts:
+		
+	# Breakdown Parsing
+	for child in hit_chance_breakdown.get_children():
+		child.queue_free()
+		
+	var lines = breakdown.split("\n")
+	for line in lines:
+		if line.strip_edges() == "": continue
 		var lbl = Label.new()
-		lbl.text = p.strip_edges()
-		if "-" in p:
-			lbl.modulate = Color(1, 0.5, 0.5)  # Reddish for penalties
-		else:
-			lbl.modulate = Color(0.7, 1, 0.7)  # Greenish for bonuses/base
+		lbl.text = line
+		lbl.add_theme_font_size_override("font_size", 14)
+		if line.begins_with("Base"):
+			lbl.modulate = Color.GRAY
+		elif line.contains("+"):
+			lbl.modulate = Color.GREEN
+		elif line.contains("-"):
+			lbl.modulate = Color.RED
 		hit_chance_breakdown.add_child(lbl)
 
 	# Force initial position update immediately so it doesn't flicker at old pos

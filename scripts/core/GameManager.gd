@@ -95,6 +95,9 @@ func new_game(enable_iron_dog: bool = false):
 	invasion_progress = 0
 	inventory.clear()
 
+	if BarkTreeManager:
+		BarkTreeManager.reset_state()
+
 	_add_recruit("Barnaby", 1, "Heavy")
 	_add_recruit("Waffles", 1, "Scout", 105)
 	_add_recruit("Dr Bark", 1, "Paramedic")
@@ -241,12 +244,31 @@ func _generate_daily_batch():
 func _add_recruit(
 	recruit_name: String, level: int, unit_class: String = "Recruit", starting_xp: int = 0
 ):
+	# Calculate correct HP for class
+	var hp_val = 10
+	var path = "res://assets/data/classes/" + unit_class + "Data.tres"
+	if ResourceLoader.exists(path):
+		var res = load(path)
+		if res and res.base_stats:
+			hp_val = int(res.base_stats.get("max_hp", 10))
+			print("DEBUG_GM: Loaded ", unit_class, " Data. Base HP: ", res.base_stats.get("max_hp"), " -> ", hp_val)
+		else:
+			print("DEBUG_GM: Failed to load base_stats for ", unit_class)
+	else:
+		print("DEBUG_GM: Class Data invalid path: ", path)
+	
+	# Add Level Bonus
+	hp_val += (level - 1) * 2
+	
+	print("DEBUG_GM: Creating ", recruit_name, " (", unit_class, ") with HP: ", hp_val)
+
 	var new_unit = {
 		"name": recruit_name,
 		"level": level,
 		"class": unit_class,
 		"xp": starting_xp,
-		"max_hp": 10,
+		"max_hp": hp_val,
+		"hp": hp_val,
 		"status": "Ready",  # Ready, Resting, Injured
 		"items": [],  # Can hold Consumables
 		"unlocked_talents": [],  # Array of Talent/Perk IDs (String)
@@ -776,20 +798,18 @@ func _find_item_by_name(id_name: String) -> Resource:
 
 func calculate_max_hp(unit_data: Dictionary) -> int:
 	var cls_name = unit_data.get("class", "Recruit")
-	var level = unit_data.get("level", 1) - 1  # Levels start at 1, but growth is per rank up? Usually lvl 1 has base.
-	# Actually level 1 = Base. Level 2 = Base + Growth.
-	# So growth applied (level - 1) times.
-
-	# Load Class Data (In memory ideally, but load for now)
+	var level = unit_data.get("level", 1)
+	
+	var base = 10
 	var path = "res://assets/data/classes/" + cls_name + "Data.tres"
-	if not ResourceLoader.exists(path):
-		return 10  # Default fallback
+	if ResourceLoader.exists(path):
+		var c_data = load(path)
+		if c_data and c_data.base_stats:
+			base = c_data.base_stats.get("max_hp", 10)
 
-	var c_data = load(path)
-	var base = c_data.base_stats.get("max_hp", 10)
-	var growth = c_data.stat_growth.get("max_hp", 1)
-
-	return base + (growth * level)
+	# Consistent Formula: Base + (Level-1)*2
+	var bonus = (level - 1) * 2
+	return base + bonus
 
 
 func update_settings(music: float, sfx: float):
