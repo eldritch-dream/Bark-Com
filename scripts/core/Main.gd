@@ -1322,11 +1322,11 @@ func _on_tile_clicked(grid_pos: Vector2, button_index: int):
 		if selected_ability and selected_unit:
 			var world_pos = grid_manager.get_world_position(grid_pos)
 			var target_unit = _get_unit_at_grid(grid_pos)
-			var result = selected_ability.execute(
+			var result = await selected_ability.execute(
 				selected_unit, target_unit, grid_pos, grid_manager
 			)
 			print("Ability Result: ", result)
-			game_ui.log_message(result)
+			game_ui.log_message(str(result))
 			# Do NOT trigger floating text from log_message if it does that.
 			_clear_targeting()
 

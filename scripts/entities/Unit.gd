@@ -559,6 +559,10 @@ func die():
 	SignalBus.on_unit_died.emit(self)
 	if state_machine:
 		state_machine.transition_to("Dead")
+	
+	# Wait for animation (approx 2s or query AnimPlayer)
+	# Using timer for safety as Visuals might be various
+	await get_tree().create_timer(1.5).timeout
 	queue_free()
 
 

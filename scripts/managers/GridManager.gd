@@ -352,14 +352,13 @@ func get_reachable_tiles(start_pos: Vector2, max_move: int) -> Array[Vector2]:
 
 
 func get_units_in_radius_world(center: Vector3, radius: float) -> Array:
-	var units = []
-	# Iterate all potential unit positions
-	for coord in grid_data:
-		var d = grid_data[coord]
-		var unit = d.get("unit")
-		if unit and is_instance_valid(unit) and "current_hp" in unit and unit.current_hp > 0:
-			# Check distance
-			var unit_pos = get_world_position(coord)
-			if center.distance_to(unit_pos) <= radius:
-				units.append(unit)
-	return units
+	var hit_units = []
+	var all_units = get_tree().get_nodes_in_group("Units")
+	
+	for unit in all_units:
+		if is_instance_valid(unit) and "current_hp" in unit and unit.current_hp > 0:
+			# Check distance (using global_position to be safe)
+			if unit.global_position.distance_to(center) <= radius:
+				hit_units.append(unit)
+				
+	return hit_units

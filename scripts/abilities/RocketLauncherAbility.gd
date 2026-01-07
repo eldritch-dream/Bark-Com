@@ -18,8 +18,16 @@ func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 	var world_pos = grid_manager.get_world_position(target_pos)
 	print(user.name, " fires a ROCKET at ", world_pos)
 	
+	# --- MISSILE ANIMATION ---
+	var missile_script = load("res://scripts/vfx/MissileProjectile.gd")
+	if missile_script:
+		var missile = missile_script.new()
+		user.get_tree().root.add_child(missile)
+		missile.launch(user.global_position + Vector3(0, 1.5, 0), world_pos)
+		await missile.impact
+	
 	# AOE Logic
-	var units = grid_manager.get_units_in_radius_world(world_pos, 2.5) 
+	var units = grid_manager.get_units_in_radius_world(world_pos, aoe_radius) 
 	for unit in units:
 		# Friendly Fire is ENABLED for Rockets
 		unit.take_damage(6)
