@@ -1398,6 +1398,92 @@ func _show_customization_selector(unit_data):
 		# Grid
 		var grid = GridContainer.new()
 		grid.columns = 3
+
+
+func _show_inventory():
+	_clear_content()
+	_hide_mascot()
+	
+	# Root
+	var root = HBoxContainer.new()
+	root.name = "StashRoot"
+	root.set_meta("ui_context", "stash")
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_area.add_child(root)
+	
+	# --- LEFT: Mascot (Stash Keeper) ---
+	var portrait_container = PanelContainer.new()
+	portrait_container.custom_minimum_size = Vector2(500, 0)
+	portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(portrait_container)
+	
+	var portrait_rect = TextureRect.new()
+	portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	portrait_container.add_child(portrait_rect)
+	
+	var tex = _get_mascot_texture("corgi_stash_keeper")
+	if tex:
+		portrait_rect.texture = tex
+	else:
+		var lbl = Label.new()
+		lbl.text = "NO IMAGE"
+		portrait_container.add_child(lbl)
+
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size.x = 20
+	root.add_child(spacer)
+
+	# --- RIGHT: Content ---
+	var right_col = VBoxContainer.new()
+	right_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(right_col)
+
+	var title = Label.new()
+	title.text = "THE STASH"
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color.TEAL)
+	right_col.add_child(title)
+	
+	var sub = Label.new()
+	sub.text = '"My precious..."'
+	sub.modulate = Color(0.7, 0.7, 0.7)
+	right_col.add_child(sub)
+	
+	right_col.add_child(HSeparator.new())
+
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_col.add_child(scroll)
+
+	var grid_inv = GridContainer.new()
+	grid_inv.columns = 1 
+	grid_inv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(grid_inv)
+
+	var inventory = GameManager.inventory
+	if inventory.is_empty():
+		var empty = Label.new()
+		empty.text = "Stash is empty. Scavenge more!"
+		empty.modulate = Color(1, 1, 1, 0.5)
+		grid_inv.add_child(empty)
+		return
+
+	# Group items? Or just list linearly.
+	for i in range(inventory.size()):
+		var item = inventory[i]
+		var btn = Button.new()
+		btn.text = item.display_name + " (" + item.description + ")"
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		grid_inv.add_child(btn)
+		# Maybe click to sell/trash? (Future feature)
+		btn.pressed.connect(func(): _log("Selected: " + item.display_name))
 		content_area.add_child(grid)
 
 		# "None" Option
