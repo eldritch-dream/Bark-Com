@@ -330,7 +330,7 @@ func setup(data):
 	txt += "[/table]"
 	stats_label.text = txt
 
-	# --- WEAPON ---
+	# --- WEAPON & ITEMS ---
 	var w_text = ""
 	if d.primary_weapon:
 		var w = d.primary_weapon # Resource or Dict
@@ -349,7 +349,22 @@ func setup(data):
 		var ammo_str = "Infinite" if w_ammo_val < 0 else str(w_ammo_val)
 		w_text += "Ammo: " + ammo_str + "\n"
 	else:
-		w_text = "[color=gray]No Weapon Equipped[/color]"
+		w_text = "[color=gray]No Weapon Equipped[/color]\n"
+
+	# Items
+	var items = d.get("inventory", [])
+	if items.size() > 0:
+		w_text += "\n[b]Carried Items:[/b]\n"
+		for it in items:
+			var i_name = "Unknown Item"
+			if it is Resource or it is Object:
+				i_name = it.display_name if "display_name" in it else "Item"
+			elif it is Dictionary:
+				i_name = it.get("display_name", "Item")
+				
+			w_text += "• " + i_name + "\n"
+	else:
+		w_text += "\n[color=gray]No Items Carried[/color]"
 	
 	weapon_details.text = w_text
 

@@ -893,92 +893,10 @@ func _create_styled_panel_for_list() -> PanelContainer:
 	return panel
 
 
-func _show_inventory(status_msg: String = "", status_color: String = ""):
-	_clear_content()
-	# input_field.visible = false -> REMOVED
-
-	var title = Label.new()
-	title.text = "STASH (Inventory)"
-	title.add_theme_font_size_override("font_size", 24)
-	content_area.add_child(title)
-
-	if status_msg != "":
-		var s_lbl = RichTextLabel.new()
-		s_lbl.text = "[center][color=" + status_color + "]" + status_msg + "[/color][/center]"
-		s_lbl.bbcode_enabled = true
-		s_lbl.fit_content = true
-		s_lbl.custom_minimum_size = Vector2(0, 30)
-		content_area.add_child(s_lbl)
-		content_area.add_child(HSeparator.new())
-
-	if game_manager.inventory.is_empty():
-		var l = Label.new()
-		l.text = "(Empty)"
-		content_area.add_child(l)
-		return
-
-	var list = VBoxContainer.new()
-	content_area.add_child(list)
-
-	var idx = 0
-	for item in game_manager.inventory:
-		var panel = _create_styled_panel_for_list()
-		list.add_child(panel)
-		list.add_child(HSeparator.new())
-
-		var row = HBoxContainer.new()
-		panel.add_child(row)
-
-		var lbl = Label.new()
-		lbl.text = item.display_name
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(lbl)
-
-		# Equip Button
-		if item is WeaponData or item is ConsumableData:
-			var equip_btn = Button.new()
-			equip_btn.text = "EQUIP"
-			var current_idx = idx
-			equip_btn.pressed.connect(func(): _show_equip_selector(current_idx))
-			row.add_child(equip_btn)
-
-		idx += 1
 
 
-func _show_equip_selector(item_idx: int):
-	_clear_content()
 
-	var item = game_manager.inventory[item_idx]
 
-	var title = Label.new()
-	title.text = "Equip " + item.display_name + " to whom?"
-	title.add_theme_font_size_override("font_size", 24)
-	content_area.add_child(title)
-
-	var grid = GridContainer.new()
-	grid.columns = 2
-	content_area.add_child(grid)
-
-	for c in game_manager.get_roster():
-		var btn = Button.new()
-		btn.text = c["name"] + " (Lvl " + str(c["level"]) + ")"
-		btn.custom_minimum_size = Vector2(200, 60)
-		btn.pressed.connect(
-			func():
-				var success = _equip_item(c["name"], item_idx)
-				var msg = "Equipped Successfully!"
-				var col = "green"
-				if not success:
-					msg = "Equip Failed (Inventory Full)"
-					col = "red"
-				_show_inventory(msg, col)  # Return to stash with message
-		)
-		grid.add_child(btn)
-
-	var cancel = Button.new()
-	cancel.text = "CANCEL"
-	cancel.pressed.connect(_show_inventory)
-	content_area.add_child(cancel)
 
 
 func _buy_item(index: int):
@@ -1361,31 +1279,22 @@ Good luck, Commander.
 # --- COSMETIC UI ---
 func _show_customization_selector(unit_data):
 	_clear_content()
-	# input_field.visible = false REMOVED
 
 	var title = Label.new()
 	title.text = "Fitting Room: " + unit_data["name"]
 	title.add_theme_font_size_override("font_size", 24)
 	content_area.add_child(title)
 
-	# Create Mock Unit (Data only) wrapper for check
-	# We need a dummy object that has 'rank_level', 'current_class_data', 'current_sanity' for the checker.
-	# Or make checker static and accepting dict.
-	# Actually CosmeticManager._check_requirement expects an OBJECT (Unit.gd).
-	# We can't easily mock that without instancing.
-	# Workaround: Manually check or adapt check_requirement to accept Dict.
-	# Or instantiate a dummy unit.
 	var dummy = load("res://scripts/entities/Unit.gd").new()
 	dummy.rank_level = unit_data.get("level", 1)
 	dummy.current_sanity = unit_data.get("sanity", 100)
 	var cls_name = unit_data.get("class", "Recruit")
-	# Try load class data
 	var cls_path = "res://assets/data/classes/" + cls_name + "Data.tres"
 	if ResourceLoader.exists(cls_path):
 		dummy.current_class_data = load(cls_path)
 
 	var all_items = CosmeticManager.get_unlocked_items(dummy)
-	dummy.queue_free()  # Clean up
+	dummy.queue_free()
 
 	var slots = ["HEAD", "BACK"]
 
@@ -1398,9 +1307,38 @@ func _show_customization_selector(unit_data):
 		# Grid
 		var grid = GridContainer.new()
 		grid.columns = 3
+		content_area.add_child(grid)
+
+		# "None" Option
+		var none_btn = Button.new()
+		none_btn.text = "UNEQUIP"
+		none_btn.custom_minimum_size = Vector2(100, 40)
+		none_btn.pressed.connect(func(): _equip_cosmetic_data(unit_data, slot, null))
+		grid.add_child(none_btn)
+
+		for item in all_items:
+			if item.slot == slot:
+				var btn = Button.new()
+				btn.text = item.display_name
+				btn.custom_minimum_size = Vector2(100, 40)
+
+				# Highlight if equipped
+				var current = unit_data.get("cosmetics", {}).get(slot, "")
+				if current == item.id:
+					btn.modulate = Color.GREEN
+
+				btn.pressed.connect(func(): _equip_cosmetic_data(unit_data, slot, item.id))
+				grid.add_child(btn)
+
+		content_area.add_child(HSeparator.new())
+
+	var back_btn = Button.new()
+	back_btn.text = "BACK TO BARRACKS"
+	back_btn.pressed.connect(_show_roster)
+	content_area.add_child(back_btn)
 
 
-func _show_inventory():
+func _show_inventory(status_msg: String = "", status_color: String = "white"):
 	_clear_content()
 	_hide_mascot()
 	
@@ -1456,6 +1394,15 @@ func _show_inventory():
 	right_col.add_child(sub)
 	
 	right_col.add_child(HSeparator.new())
+	
+	if status_msg != "":
+		var s_lbl = RichTextLabel.new()
+		s_lbl.text = "[center][color=" + status_color + "]" + status_msg + "[/color][/center]"
+		s_lbl.bbcode_enabled = true
+		s_lbl.fit_content = true
+		s_lbl.custom_minimum_size = Vector2(0, 30)
+		right_col.add_child(s_lbl)
+		right_col.add_child(HSeparator.new())
 
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1475,44 +1422,234 @@ func _show_inventory():
 		grid_inv.add_child(empty)
 		return
 
-	# Group items? Or just list linearly.
-	for i in range(inventory.size()):
-		var item = inventory[i]
+	# 1. Separate Items
+	var weapons = []
+	var consumables = []
+	
+	for item in inventory:
+		if item is WeaponData:
+			weapons.append(item)
+		elif item is ConsumableData:
+			consumables.append(item)
+
+	# --- CONTENT CONTAINER ---
+	# ScrollContainer works best with a single child.
+	var content_vbox = VBoxContainer.new()
+	content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_vbox.add_theme_constant_override("separation", 20) # Spacing between sections
+	scroll.add_child(content_vbox)
+
+	# --- WEAPONS SECTION ---
+	if weapons.size() > 0:
+		var w_lbl = Label.new()
+		w_lbl.text = "WEAPONS"
+		w_lbl.add_theme_color_override("font_color", Color.LIGHT_CORAL)
+		w_lbl.add_theme_font_size_override("font_size", 20)
+		content_vbox.add_child(w_lbl)
+		content_vbox.add_child(HSeparator.new())
+		
+		var w_grid = GridContainer.new()
+		w_grid.columns = 3
+		w_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		w_grid.add_theme_constant_override("h_separation", 10)
+		w_grid.add_theme_constant_override("v_separation", 10)
+		content_vbox.add_child(w_grid)
+		
+		for i in range(inventory.size()):
+			var item = inventory[i]
+			if item is WeaponData:
+				_create_stash_item_card(w_grid, item, i)
+
+	# --- CONSUMABLES SECTION ---
+	if consumables.size() > 0:
+		var c_lbl = Label.new()
+		c_lbl.text = "SUPPLIES"
+		c_lbl.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+		c_lbl.add_theme_font_size_override("font_size", 20)
+		content_vbox.add_child(c_lbl)
+		content_vbox.add_child(HSeparator.new())
+		
+		var c_grid = GridContainer.new()
+		c_grid.columns = 3
+		c_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		c_grid.add_theme_constant_override("h_separation", 10)
+		c_grid.add_theme_constant_override("v_separation", 10)
+		content_vbox.add_child(c_grid)
+		
+		for i in range(inventory.size()):
+			var item = inventory[i]
+			if item is ConsumableData:
+				_create_stash_item_card(c_grid, item, i)
+
+
+
+func _create_stash_item_card(parent, item, index):
+	var panel = _create_styled_panel_for_list()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.custom_minimum_size = Vector2(0, 100) # Ensure some height
+	parent.add_child(panel)
+	
+	var row = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(row)
+	
+	# 1. Icon (Placeholder - Neutral)
+	var icon_rect = ColorRect.new()
+	icon_rect.custom_minimum_size = Vector2(64, 64)
+	icon_rect.color = Color(0.2, 0.2, 0.25) # Dark Slate Blue/Grey
+	row.add_child(icon_rect)
+	
+	# Icon Label
+	var icon_lbl = Label.new()
+	icon_lbl.text = "WPN" if item is WeaponData else "ITEM"
+	icon_lbl.add_theme_font_size_override("font_size", 10)
+	icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	icon_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon_rect.add_child(icon_lbl)
+	
+	var spacer1 = Control.new()
+	spacer1.custom_minimum_size.x = 10
+	row.add_child(spacer1)
+	
+	# 2. Info
+	var v_info = VBoxContainer.new()
+	v_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v_info.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(v_info)
+	
+	var name_lbl = Label.new()
+	name_lbl.text = item.display_name
+	name_lbl.add_theme_font_size_override("font_size", 16)
+	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v_info.add_child(name_lbl)
+	
+	var desc_lbl = Label.new()
+	desc_lbl.text = item.description
+	desc_lbl.add_theme_font_size_override("font_size", 10)
+	desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v_info.add_child(desc_lbl)
+	
+	# 3. Action
+	var equip_btn = Button.new()
+	equip_btn.text = "EQUIP"
+	equip_btn.custom_minimum_size = Vector2(60, 0)
+	equip_btn.pressed.connect(func(): _show_equip_selector(index))
+	row.add_child(equip_btn)
+
+
+func _show_equip_selector(item_idx: int):
+	_clear_content()
+	_hide_mascot() 
+	
+	# Validate Index
+	if item_idx < 0 or item_idx >= GameManager.inventory.size():
+		_show_inventory("Invalid Item Selection", "red")
+		return
+		
+	var item = GameManager.inventory[item_idx]
+
+	# Layout 
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_area.add_child(scroll)
+	
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
+	
+	# Title
+	var title = Label.new()
+	title.text = "SELECT RECIPIENT FOR: " + item.display_name.to_upper()
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", Color.GOLD)
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+	
+	for c in GameManager.get_roster():
+		var panel = _create_styled_panel_for_list()
+		vbox.add_child(panel)
+		vbox.add_child(HSeparator.new())
+		
+		var row = HBoxContainer.new()
+		panel.add_child(row)
+		
+		# Info
+		var info_vbox = VBoxContainer.new()
+		info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info_vbox)
+		
+		var name_lbl = Label.new()
+		name_lbl.text = c["name"] + " (Lvl " + str(c.get("level", 1)) + " " + c.get("class", "Recruit") + ")"
+		info_vbox.add_child(name_lbl)
+		
+		# Show Current Gear Context
+		if item is WeaponData:
+			var curr_wpn = c.get("primary_weapon", null)
+			var txt = "Current Weapon: [None]"
+			if curr_wpn:
+				# It might be an Object or Dictionary or Resource
+				var w_name = "Unknown"
+				if curr_wpn is Resource or curr_wpn is Object:
+					w_name = curr_wpn.display_name if "display_name" in curr_wpn else "Weapon"
+				elif curr_wpn is Dictionary:
+					w_name = curr_wpn.get("display_name", "Weapon")
+				txt = "Current Weapon: " + w_name
+				
+			var gear_lbl = Label.new()
+			gear_lbl.text = txt
+			gear_lbl.add_theme_font_size_override("font_size", 12)
+			gear_lbl.add_theme_color_override("font_color", Color.GRAY)
+			info_vbox.add_child(gear_lbl)
+			
+		elif item is ConsumableData:
+			var items_list = c.get("inventory", [])
+			var txt = "Carrying: " + str(items_list.size()) + " Items"
+			if items_list.size() > 0:
+				txt += " ("
+				var names = []
+				for it in items_list:
+					if it is Resource or it is Object:
+						names.append(it.get("display_name") if "display_name" in it else "Item")
+					elif it is Dictionary:
+						names.append(it.get("display_name", "Item"))
+				txt += ", ".join(names)
+				txt += ")"
+				
+			var gear_lbl = Label.new()
+
+			gear_lbl.text = txt
+			gear_lbl.add_theme_font_size_override("font_size", 12)
+			gear_lbl.add_theme_color_override("font_color", Color.GRAY)
+			info_vbox.add_child(gear_lbl)
+			
+		# Action Button
 		var btn = Button.new()
-		btn.text = item.display_name + " (" + item.description + ")"
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		grid_inv.add_child(btn)
-		# Maybe click to sell/trash? (Future feature)
-		btn.pressed.connect(func(): _log("Selected: " + item.display_name))
-		content_area.add_child(grid)
-
-		# "None" Option
-		var none_btn = Button.new()
-		none_btn.text = "UNEQUIP"
-		none_btn.custom_minimum_size = Vector2(100, 40)
-		none_btn.pressed.connect(func(): _equip_cosmetic_data(unit_data, slot, null))
-		grid.add_child(none_btn)
-
-		for item in all_items:
-			if item.slot == slot:
-				var btn = Button.new()
-				btn.text = item.display_name
-				btn.custom_minimum_size = Vector2(100, 40)
-
-				# Highlight if equipped
-				var current = unit_data.get("cosmetics", {}).get(slot, "")
-				if current == item.id:
-					btn.modulate = Color.GREEN
-
-				btn.pressed.connect(func(): _equip_cosmetic_data(unit_data, slot, item.id))
-				grid.add_child(btn)
-
-		content_area.add_child(HSeparator.new())
-
-	var back_btn = Button.new()
-	back_btn.text = "BACK TO BARRACKS"
-	back_btn.pressed.connect(_show_roster)
-	content_area.add_child(back_btn)
+		btn.text = "GIVE"
+		btn.custom_minimum_size = Vector2(100, 40)
+		btn.pressed.connect(
+			func():
+				var success = _equip_item(c["name"], item_idx)
+				var msg = "Equipped Successfully!"
+				var col = "green"
+				if not success:
+					msg = "Equip Failed (Inventory Full or Incompatible)"
+					col = "red"
+				_show_inventory(msg, col)
+		)
+		row.add_child(btn)
+		
+	# Cancel
+	var cancel = Button.new()
+	cancel.text = "CANCEL"
+	cancel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cancel.custom_minimum_size = Vector2(200, 40)
+	cancel.pressed.connect(func(): _show_inventory())
+	vbox.add_child(HSeparator.new())
+	vbox.add_child(cancel)
 
 
 func _equip_cosmetic_data(data: Dictionary, slot: String, item_id):
