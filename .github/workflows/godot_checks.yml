@@ -30,8 +30,8 @@ jobs:
           FAIL=0
           
           # 1. Run all Test Scenes (*.tscn)
-          # Using find with a loop to handle files
-          find tests -name "*.tscn" -print0 | while IFS= read -r -d '' scene; do
+          # Using find with a loop to handle files (Standard POSIX read)
+          find tests -name "*.tscn" | while read -r scene; do
             echo "🎬 Running Scene: $scene"
             godot --headless --path . "$scene"
             if [ $? -ne 0 ]; then
@@ -44,7 +44,7 @@ jobs:
           if [ -f .test_failed ]; then exit 1; fi
 
           # 2. Run Standalone Scripts (*.gd extending SceneTree/MainLoop)
-          find tests -name "*.gd" -print0 | while IFS= read -r -d '' script; do
+          find tests -name "*.gd" | while read -r script; do
             if grep -q -E "extends\s+(SceneTree|MainLoop)" "$script"; then
               echo "📜 Running Script: $script"
               godot --headless -s "$script"
