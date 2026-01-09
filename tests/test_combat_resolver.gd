@@ -23,7 +23,7 @@ class MockUnit:
 	var modifiers = {}
 	
 	func get_active_bond_bonuses(): return {}
-	func has_method(m): return false # Default
+
 	
 class MockWeapon:
 	var weapon_range = 5 # Default optimal
