@@ -319,22 +319,23 @@ func _preview_ability(grid_pos: Vector2, gv: Node):
 		):
 			is_valid = true
 			
-	if is_valid and selected_ability.has_method("get_hit_chance_breakdown"):
+	if is_valid:
 		var info = selected_ability.get_hit_chance_breakdown(grid_manager, selected_unit, target_unit)
-		
-		# Parse Breakdown Dictionary to String
-		var breakdown_str = ""
-		if info.has("breakdown") and info["breakdown"] is Dictionary:
-			for key in info["breakdown"]:
-				var val = info["breakdown"][key]
-				var sign_str = "+" if val >= 0 else ""
-				breakdown_str += "%s: %s%d\n" % [key, sign_str, val]
-		elif info.has("breakdown") and info["breakdown"] is String:
-			breakdown_str = info["breakdown"]
+		if not info.is_empty() and info.has("hit_chance"):
 			
-		# Standard Offset 1.8 confirmed
-		if _signal_bus:
-			_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_unit.position + Vector3(0, 1.8, 0))
+			# Parse Breakdown Dictionary to String
+			var breakdown_str = ""
+			if info.has("breakdown") and info["breakdown"] is Dictionary:
+				for key in info["breakdown"]:
+					var val = info["breakdown"][key]
+					var sign_str = "+" if val >= 0 else ""
+					breakdown_str += "%s: %s%d\n" % [key, sign_str, val]
+			elif info.has("breakdown") and info["breakdown"] is String:
+				breakdown_str = info["breakdown"]
+				
+			# Standard Offset 1.8 confirmed
+			if _signal_bus:
+				_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_unit.position + Vector3(0, 1.8, 0))
 	else:
 		if _signal_bus:
 			_signal_bus.on_hide_hit_chance.emit()
@@ -360,21 +361,22 @@ func _preview_attack(grid_pos: Vector2):
 		if not ability_to_check and current_input_state == InputState.TARGETING:
 			ability_to_check = default_attack
 
-		if ability_to_check and ability_to_check.has_method("get_hit_chance_breakdown"):
+		if ability_to_check:
 			var info = ability_to_check.get_hit_chance_breakdown(grid_manager, selected_unit, target_unit)
+			if not info.is_empty() and info.has("hit_chance"):
 			
-			# Parse Breakdown Dictionary to String
-			var breakdown_str = ""
-			if info.has("breakdown") and info["breakdown"] is Dictionary:
-				for key in info["breakdown"]:
-					var val = info["breakdown"][key]
-					var sign_str = "+" if val >= 0 else ""
-					breakdown_str += "%s: %s%d\n" % [key, sign_str, val]
-			elif info.has("breakdown") and info["breakdown"] is String:
-				breakdown_str = info["breakdown"]
+				# Parse Breakdown Dictionary to String
+				var breakdown_str = ""
+				if info.has("breakdown") and info["breakdown"] is Dictionary:
+					for key in info["breakdown"]:
+						var val = info["breakdown"][key]
+						var sign_str = "+" if val >= 0 else ""
+						breakdown_str += "%s: %s%d\n" % [key, sign_str, val]
+				elif info.has("breakdown") and info["breakdown"] is String:
+					breakdown_str = info["breakdown"]
 
-			if _signal_bus:
-				_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_unit.position + Vector3(0, 1.8, 0))
+				if _signal_bus:
+					_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_unit.position + Vector3(0, 1.8, 0))
 	else:
 		if _signal_bus:
 			_signal_bus.on_hide_hit_chance.emit()

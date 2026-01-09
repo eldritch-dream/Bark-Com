@@ -1426,7 +1426,7 @@ func _on_item_requested(item, slot_index):
 
 
 func _execute_ability(ability, user, target, grid_pos):
-	if ability.get_script().resource_path.ends_with("StandardAttack.gd"):
+	if ability is StandardAttack:
 		print("Main: Executing Standard Attack via Ability Wrapper")
 		await _process_combat(target)
 		return

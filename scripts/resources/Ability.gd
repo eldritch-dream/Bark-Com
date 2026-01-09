@@ -22,6 +22,15 @@ func execute(_user, _target_unit, _target_tile: Vector2, _grid_manager: GridMana
 	return "Base ability executed."
 
 
+# Returns hit chance and breakdown for UI (Optional)
+# Override in subclasses if ability uses hit/miss logic
+# Return format: { "hit_chance": int, "breakdown": Dictionary/String }
+# Return empty dictionary if not applicable.
+func get_hit_chance_breakdown(_grid_manager: GridManager, _user, _target) -> Dictionary:
+	return {} 
+
+
+
 func can_use() -> bool:
 	return current_cooldown <= 0
 
