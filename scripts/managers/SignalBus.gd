@@ -33,6 +33,9 @@ signal on_level_up(unit_name: String, new_level: int)
 
 # UI Events
 signal on_ui_force_update  # Catch-all for full refresh if needed
+signal on_squad_list_initialized(units_array)
+signal on_objectives_updated(new_text: String)
+signal on_request_pause
 signal on_show_hit_chance(percent: int, breakdown: String, target_pos: Vector3)
 signal on_hide_hit_chance
 signal on_turn_banner_finished

@@ -117,6 +117,12 @@ func handle_mouse_hover(grid_pos: Vector2):
 	var gv = _get_grid_visualizer()
 	if not gv: return
 
+	# Prevent hover updates during execution
+	if turn_manager and turn_manager.is_handling_action:
+		if _signal_bus:
+			_signal_bus.on_hide_hit_chance.emit()
+		return
+
 	match current_input_state:
 		InputState.MOVING:
 			_preview_movement(grid_pos, gv)
@@ -307,7 +313,10 @@ func _preview_ability(grid_pos: Vector2, gv: Node):
 	var target_unit = _get_unit_at(grid_pos)
 	var is_valid = false
 	if target_unit and target_unit != selected_unit:
-		if target_unit.get("faction") != selected_unit.get("faction") or target_unit.has_method("take_damage"):
+		if (
+			(target_unit.get("faction") != selected_unit.get("faction") or target_unit.has_method("take_damage"))
+			and ("visible" in target_unit and target_unit.visible)
+		):
 			is_valid = true
 			
 	if is_valid and selected_ability.has_method("get_hit_chance_breakdown"):
@@ -335,7 +344,7 @@ func _preview_attack(grid_pos: Vector2):
 	var target_unit = _get_unit_at(grid_pos)
 	
 	var is_valid_target = false
-	if target_unit and target_unit != selected_unit:
+	if target_unit and target_unit != selected_unit and ("visible" in target_unit and target_unit.visible):
 		# 1. Check Faction Match (Enemy)
 		if "faction" in target_unit and "faction" in selected_unit:
 			if target_unit.faction != selected_unit.faction:

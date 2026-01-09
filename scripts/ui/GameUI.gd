@@ -373,16 +373,27 @@ func _ready():
 	SignalBus.on_turn_changed.connect(_on_sb_turn_changed)
 	SignalBus.on_combat_log_event.connect(_on_sb_log_event)
 	SignalBus.on_mission_ended.connect(_on_sb_mission_ended)
+	SignalBus.on_ui_select_unit.connect(_on_sb_select_unit) # Added from instruction
+	SignalBus.on_cinematic_mode_changed.connect(_on_cinematic_mode) # Kept from original
+
+	# Decoupling Phase 74.3
+	SignalBus.on_squad_list_initialized.connect(initialize_squad_list)
+	SignalBus.on_objectives_updated.connect(update_objectives)
+	SignalBus.on_request_pause.connect(toggle_pause_menu)
+
+
 	SignalBus.on_show_hit_chance.connect(show_hit_chance)
 	SignalBus.on_hide_hit_chance.connect(hide_hit_chance)
 	SignalBus.on_turn_banner_finished.connect(func(): pass)
 	SignalBus.on_request_floating_text.connect(_queue_floating_text)
-	SignalBus.on_ui_select_unit.connect(_select_unit)
-	SignalBus.on_cinematic_mode_changed.connect(_on_cinematic_mode)
+	# SignalBus.on_cinematic_mode_changed.connect(_on_cinematic_mode) # Already connected above
+
 
 
 func _on_cinematic_mode(active: bool):
 	visible = !active
+	if not active:
+		hide_hit_chance()
 
 
 func select_unit(unit):
@@ -1279,3 +1290,8 @@ func _spawn_floating_text(pos: Vector3, text: String, color: Color):
 	tw.tween_property(lbl, "position:y", screen_pos.y - 100, 1.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(lbl, "modulate:a", 0.0, 1.5).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(lbl.queue_free)
+
+
+
+func _on_sb_select_unit(unit):
+	update_unit_info(unit)

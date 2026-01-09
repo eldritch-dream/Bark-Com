@@ -316,12 +316,12 @@ func _on_camera_focus_requested(target_pos: Vector3):
 
 
 func _on_turn_changed(phase_name, _turn_num):
-	# 1. Refresh UI
-	if turn_manager and game_ui:
-		game_ui.update_squad_overlay(turn_manager.units)
+	# 1. Refresh UI via SignalBus
+	# Ensure GameUI listens to this event to update squad overlay
+	# SignalBus.on_turn_changed.emit(phase_name, _turn_num) # REMOVED: TurnManager emits this directly.
 	
-	if objective_manager and game_ui:
-		game_ui.update_objectives(objective_manager.get_objective_text())
+	if objective_manager:
+		SignalBus.on_objectives_updated.emit(objective_manager.get_objective_text())
 		var status = objective_manager.check_status(turn_manager.units, _turn_num)
 		if status == "WIN":
 			_on_mission_ended_handler(true)
@@ -331,7 +331,7 @@ func _on_turn_changed(phase_name, _turn_num):
 			return
 
 	if phase_name == "PLAYER PHASE":
-		game_ui.log_message("Your Turn")
+		SignalBus.on_combat_log_event.emit("Your Turn", Color.WHITE)
 		current_input_state = InputState.SELECTING
 		
 		# Update Fog
@@ -422,7 +422,7 @@ func _on_mission_completed():
 		_end_mission(true)
 var _mission_end_processed = false
 
-func _on_mission_ended_handler(victory: bool):
+func _on_mission_ended_handler(victory: bool, _rewards: int = 0):
 	print("DEBUG: _on_mission_ended_handler called! Victory: ", victory)
 	print("DEBUG: Stack Trace: ", get_stack())
 	
@@ -540,6 +540,8 @@ func _handle_hover(screen_pos):
 		is_instance_valid(hovered_unit)
 		and hovered_unit != selected_unit
 		and target_faction != self_faction
+		and hovered_unit.current_hp > 0
+		and hovered_unit.visible
 	):
 		# Calculate Chance
 		var gm = get_node("GridManager")
@@ -759,13 +761,25 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 	fog_manager.name = "FogManager"
 	add_child(fog_manager)
 
-	game_ui.connect("action_requested", _on_ui_action)
-	game_ui.connect("ability_requested", _on_ability_requested)
-	game_ui.connect("item_requested", _on_item_requested)
-	game_ui.connect("end_turn_requested", _end_player_turn)
-	game_ui.unit_selection_changed.connect(_handle_unit_selection_from_ui)
+	if not game_ui.is_connected("action_requested", _on_ui_action):
+		game_ui.connect("action_requested", _on_ui_action)
+	if not game_ui.is_connected("ability_requested", _on_ability_requested):
+		game_ui.connect("ability_requested", _on_ability_requested)
+	if not game_ui.is_connected("item_requested", _on_item_requested):
+		game_ui.connect("item_requested", _on_item_requested)
+	if not game_ui.is_connected("end_turn_requested", _end_player_turn):
+		game_ui.connect("end_turn_requested", _end_player_turn)
+	if not game_ui.is_connected("unit_selection_changed", _handle_unit_selection_from_ui):
+		game_ui.unit_selection_changed.connect(_handle_unit_selection_from_ui)
 
-	SignalBus.on_turn_changed.connect(_on_turn_changed)
+	# PREVENT RECURSION: Main acts as Listener (TurnManager emits via SignalBus)
+	# So Main listens to SignalBus, but DOES NOT re-emit.
+	if not SignalBus.on_turn_changed.is_connected(_on_turn_changed):
+		SignalBus.on_turn_changed.connect(_on_turn_changed)
+	
+	# Legacy Connection Removed (SignalBus handles it)
+	# if turn_manager and not turn_manager.turn_changed.is_connected(_on_turn_changed):
+	# 	turn_manager.turn_changed.connect(_on_turn_changed)
 
 	# Connect InputManager
 	var input_mgr = get_node_or_null("/root/InputManager")
@@ -1408,7 +1422,7 @@ func _on_item_requested(item, slot_index):
 	if gv:
 		gv.show_highlights(valid_tiles, Color.CYAN)
 
-	game_ui.log_message("Select Target for " + item.display_name)
+	SignalBus.on_combat_log_event.emit("Select Target for " + item.display_name, Color.WHITE)
 
 
 func _execute_ability(ability, user, target, grid_pos):
@@ -1422,7 +1436,7 @@ func _execute_ability(ability, user, target, grid_pos):
 	)
 	print("Ability Result: ", result)
 	if game_ui:
-		game_ui.log_message(str(result))
+		SignalBus.on_combat_log_event.emit(str(result), Color.WHITE)
 	_clear_targeting() # Should clear controller state too? Controller handles its own reset.
 	# But checking "Controller Handles Reset" -> Controller calls start Main._execute. 
 	# Main._clear_targeting resets UI overlay. Controller resets InputState.
@@ -1462,7 +1476,7 @@ func _execute_item(user, item, slot_index, target, grid_pos):
 		
 	print("Item Result: ", result)
 	if game_ui:
-		game_ui.log_message(str(result))
+		SignalBus.on_combat_log_event.emit(str(result), Color.WHITE)
 		
 	# Clear
 	_clear_targeting()
@@ -1495,7 +1509,7 @@ func _on_tile_clicked_LEGACY(grid_pos: Vector2, button_index: int):
 			# Validate Range
 			var valid_tiles = selected_ability.get_valid_tiles(grid_manager, selected_unit)
 			if not valid_tiles.has(grid_pos):
-				game_ui.log_message("Target out of range!")
+				SignalBus.on_combat_log_event.emit("Target out of range!", Color.RED)
 				print("Main: Ignored click at ", grid_pos, " - Out of Range.")
 				return
 
@@ -1505,7 +1519,7 @@ func _on_tile_clicked_LEGACY(grid_pos: Vector2, button_index: int):
 				selected_unit, target_unit, grid_pos, grid_manager
 			)
 			print("Ability Result: ", result)
-			game_ui.log_message(str(result))
+			SignalBus.on_combat_log_event.emit(str(result), Color.WHITE)
 			# Do NOT trigger floating text from log_message if it does that.
 			_clear_targeting()
 
@@ -1704,7 +1718,7 @@ func _clear_targeting_visuals():
 		gv.clear_preview_path()
 		gv.clear_hover_cursor()
 		gv.clear_preview_aoe()
-	game_ui.log_message("Command Cancelled.")
+	SignalBus.on_combat_log_event.emit("Command Cancelled.", Color.GRAY)
 
 
 
@@ -1745,7 +1759,7 @@ func _on_pause_toggle():
 	else:
 		# Toggle Menu
 		if game_ui and game_ui.has_method("toggle_pause_menu"):
-			game_ui.toggle_pause_menu()
+			SignalBus.on_request_pause.emit()
 
 
 func _on_debug_action(action: String):
