@@ -1,9 +1,11 @@
-extends "res://scripts/resources/StatusEffect.gd"
+extends StatusEffect
 
 func _init():
 	display_name = "Suppressed"
+	description = "Mobility -4, Accuracy -20."
 	duration = 1
 	type = EffectType.DEBUFF
+	icon = preload("res://assets/icons/status/suppressed.svg")
 
 func on_apply(unit):
 	# Apply Stat penalties

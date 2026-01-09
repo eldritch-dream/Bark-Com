@@ -6,6 +6,7 @@ func _init():
 	description = "Unit is controlled by AI and may attack allies."
 	duration = 1
 	type = EffectType.DEBUFF
+	icon = preload("res://assets/icons/status/confused.svg")
 
 
 func on_turn_start(unit: Node):

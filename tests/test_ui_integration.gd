@@ -1,4 +1,4 @@
-extends SceneTree
+extends Node
 
 # Usage: godot -s tests/test_ui_integration.gd
 
@@ -18,24 +18,22 @@ class MockUnit:
 	var faction = "Player"
 	var inventory = []
 	var abilities = []
-	func has_method(m): return true
-	func get(p): 
-		if p == "faction": return "Player"
-		return null
 
-func _init():
+
+func _ready():
 	print("--- STARTING UI INTEGRATION TESTS ---")
+	await get_tree().process_frame
 	
 	GameUI_Script = load("res://scripts/ui/GameUI.gd")
 	if not GameUI_Script:
 		printerr("CRITICAL FAIL: Could not load GameUI script! Check for syntax errors or duplicates.")
-		quit(1)
+		get_tree().quit(1)
 		return
 
 	test_signal_connection_and_processing()
 	
 	print("--- ALL UI TESTS PASSED ---")
-	quit()
+	get_tree().quit()
 
 func test_signal_connection_and_processing():
 	var gui = GameUI_Script.new()
@@ -48,7 +46,7 @@ func test_signal_connection_and_processing():
 	# Simulate _ready (Manually call since we aren't adding to tree usually, 
 	# but GameUI connects in _ready. We must add to tree to trigger _ready or call it.
 	# Adding to root to trigger lifecycle.)
-	root.add_child(gui)
+	get_tree().root.add_child(gui)
 	
 	# 1. Test Squad Init Signal
 	var units = [MockUnit.new(), MockUnit.new()]

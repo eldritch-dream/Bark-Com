@@ -6,7 +6,10 @@ var armor_bonus: int = 2
 
 func _init():
 	display_name = "Armored"
+	description = "+2 Armor."
+	type = EffectType.BUFF
 	duration = 2
+	icon = preload("res://assets/icons/status/armor_buff.svg")
 
 
 func on_apply(unit: Node):

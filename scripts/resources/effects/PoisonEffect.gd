@@ -4,7 +4,10 @@ class_name PoisonEffect
 
 func _init():
 	display_name = "Poisoned"
-	duration = 3  # Lasts 3 turns by default
+	description = "Takes 2 Damage at end of turn."
+	duration = 3
+	type = EffectType.DEBUFF
+	icon = preload("res://assets/icons/status/poison.svg")
 
 
 func on_turn_end(unit: Node):

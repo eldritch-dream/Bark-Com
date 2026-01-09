@@ -5,7 +5,8 @@ func _init():
 	display_name = "Sit & Stay"
 	duration = 1
 	type = EffectType.BUFF
-	description = "Defense +20. 'Who's a good boy?'"
+	description = "Defense +20."
+	icon = preload("res://assets/icons/status/sit_stay.svg")
 
 func on_apply(unit):
 	# Apply Defense Bonus

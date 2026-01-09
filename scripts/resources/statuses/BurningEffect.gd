@@ -5,7 +5,10 @@ var damage_per_turn: int = 2
 
 func _init():
 	display_name = "Burning"
+	description = "Takes 2 Damage at start of turn."
 	duration = 2
+	type = EffectType.DEBUFF
+	icon = preload("res://assets/icons/status/burning.svg")
 
 func on_apply(unit: Node):
 	print("StatusEffect: ", unit.name, " caught FIRE!")

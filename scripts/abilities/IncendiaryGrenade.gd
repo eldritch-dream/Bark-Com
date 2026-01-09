@@ -33,15 +33,48 @@ func update_stats(user):
 func get_valid_tiles(grid_manager: GridManager, user) -> Array[Vector2]:
 	return grid_manager.get_tiles_in_radius(user.grid_pos, ability_range)
 
+
+func get_hit_chance_breakdown(_grid_manager, _user, _target) -> Dictionary:
+	var base = 80
+	var breakdown = {"Base Accuracy": base}
+	return {
+		"hit_chance": base, # 80% accuracy for all grenades
+		"breakdown": breakdown
+	}
+
 func execute(user, _target_unit, target_tile: Vector2, grid_manager: GridManager) -> String:
 	if not user.spend_ap(ap_cost):
 		return "Not enough AP!"
 
-	var target_pos = grid_manager.get_world_position(target_tile)
+	# Scatter Check
+	var hit_chance = 80
+	var roll = randi() % 100
+	var final_target_tile = target_tile
+	
+	if roll >= hit_chance:
+		print("Incendiary Missed! Scattering...")
+		SignalBus.on_combat_log_event.emit("Incendiary SCATTERED!", Color.ORANGE)
+		
+		var neighbors = [
+			target_tile + Vector2(0, 1), target_tile + Vector2(0, -1),
+			target_tile + Vector2(1, 0), target_tile + Vector2(-1, 0),
+			target_tile + Vector2(1, 1), target_tile + Vector2(1, -1),
+			target_tile + Vector2(-1, 1), target_tile + Vector2(-1, -1)
+		]
+		var valid_scatter = []
+		for n in neighbors:
+			if grid_manager.grid_data.has(n):
+				valid_scatter.append(n)
+		
+		if valid_scatter.size() > 0:
+			final_target_tile = valid_scatter.pick_random()
+			print("Scattered to ", final_target_tile)
+
+	var target_pos = grid_manager.get_world_position(final_target_tile)
 	SignalBus.on_combat_action_started.emit(user, null, "Incendiary", target_pos)
 	
 	# Radius Use Property
-	var tiles_to_hit = grid_manager.get_tiles_in_radius(target_tile, aoe_radius)
+	var tiles_to_hit = grid_manager.get_tiles_in_radius(final_target_tile, aoe_radius)
 
 	print(user.name, " throws INCENDIARY at ", target_tile)
 

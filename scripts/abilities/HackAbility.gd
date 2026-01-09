@@ -28,6 +28,23 @@ func get_valid_tiles(grid_manager: GridManager, user) -> Array[Vector2]:
 	return valid
 
 
+
+func get_hit_chance_breakdown(_grid_manager, user, _target) -> Dictionary:
+	var tech = user.tech_score if "tech_score" in user else 0
+	var base = 70
+	var chance = clamp(base + tech, 0, 100)
+	
+	var breakdown = {
+		"Base Tech Chance": base,
+		"Tech Bonus": tech
+	}
+	
+	return {
+		"hit_chance": chance,
+		"breakdown": breakdown
+	}
+
+
 func execute(user, target_unit, target_tile: Vector2, grid_manager: GridManager) -> String:
 	# Resolve Target
 	var terminal = null

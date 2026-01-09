@@ -4,7 +4,10 @@ class_name StunEffect
 
 func _init():
 	display_name = "Stunned"
-	duration = 1  # One turn stun
+	description = "Cannot act (0 AP)."
+	duration = 1
+	type = EffectType.DEBUFF
+	icon = preload("res://assets/icons/status/stun.svg")
 
 
 func on_apply(unit: Node):

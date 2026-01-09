@@ -1,15 +1,11 @@
-extends "res://scripts/resources/StatusEffect.gd"
+extends StatusEffect
 
 func _init():
 	display_name = "Shredded Armor"
-	duration = 3 # Lasts for rest of mission usually, but let's give it a long duration or until healed? XCOM shred is permanent. 
-	# User: "-2 flat armor min of 0"
-	# If we want permanent, we might not use duration or set it high.
-	# Let's start with 3 turns for now, or just implement on_apply with no revert in on_remove if it's permanent? 
-	# StatusEffects generally imply temporary.
-	# But "Shredded" implies physical damage. Let's make it last 99 turns.
+	description = "Armor reduced by 2."
 	duration = 99
 	type = EffectType.DEBUFF
+	icon = preload("res://assets/icons/status/shredded_armor.svg")
 
 func on_apply(unit):
 	if not unit.modifiers.has("armor_change"): unit.modifiers["armor_change"] = 0

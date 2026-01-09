@@ -35,8 +35,11 @@ var mission_end_panel: Panel
 var hit_chance_label: Label
 
 # Phase 57: Squad List
+
+var squad_panel: PanelContainer
 var squad_container: VBoxContainer
 var squad_list_container: VBoxContainer
+var glossary_window: PanelContainer
 var squad_frames: Array = []  # List of SquadMemberFrame
 
 var options_panel: OptionsPanel
@@ -99,7 +102,23 @@ func _setup_ui():
 	squad_header_btn.text = "FULL SQUAD DETAILS"
 	squad_header_btn.custom_minimum_size = Vector2(150, 30)
 	squad_header_btn.pressed.connect(_on_squad_detail_pressed)
-	squad_container.add_child(squad_header_btn)
+
+	
+	# Status Glossary Button
+	var glossary_btn = Button.new()
+	glossary_btn.text = "?"
+	glossary_btn.tooltip_text = "Status Glossary"
+	glossary_btn.custom_minimum_size = Vector2(30, 30)
+	glossary_btn.pressed.connect(_on_glossary_pressed)
+	
+	# Container for Header + Glossary
+	var header_hbox = HBoxContainer.new()
+	header_hbox.add_child(squad_header_btn)
+	header_hbox.add_child(glossary_btn)
+	
+	squad_container.add_child(header_hbox)
+	# squad_container.add_child(squad_header_btn) # Removed original add
+
 	
 	# Dynamic List Container (So we don't clear the button)
 	squad_list_container = VBoxContainer.new()
@@ -618,6 +637,45 @@ func _update_unit_card():
 		sanity_label.text = "SAN: %d/%d" % [selected_unit.current_sanity, selected_unit.max_sanity]
 	else:
 		sanity_bar.visible = false
+	# Status Icons
+	var status_container = v_card.get_node_or_null("StatusContainer")
+	if not status_container:
+		status_container = HBoxContainer.new()
+		status_container.name = "StatusContainer"
+		status_container.custom_minimum_size.y = 24
+		v_card.add_child(status_container)
+	
+	for child in status_container.get_children():
+		child.queue_free()
+	
+	if "active_effects" in selected_unit:
+		for eff in selected_unit.active_effects:
+			var rect = TextureRect.new()
+			rect.custom_minimum_size = Vector2(24, 24)
+			rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			
+			if "icon" in eff and eff.icon:
+				rect.texture = eff.icon
+			else:
+				# Fallback Visual (Colored Square)
+				var placeholder = GradientTexture2D.new()
+				placeholder.width = 24
+				placeholder.height = 24
+				placeholder.fill = GradientTexture2D.FILL_SQUARE
+				var grad = Gradient.new()
+				if "type" in eff and eff.type == 1: # DEBUFF (enum 1)
+					grad.colors = [Color.RED, Color.DARK_RED]
+				elif "type" in eff and eff.type == 0: # BUFF (enum 0)
+					grad.colors = [Color.GREEN, Color.DARK_GREEN]
+				else:
+					grad.colors = [Color.GRAY, Color.DARK_GRAY]
+				placeholder.gradient = grad
+				rect.texture = placeholder
+				
+			var desc = eff.description if "description" in eff else ""
+			rect.tooltip_text = eff.display_name + "\n" + desc
+			status_container.add_child(rect)
 
 	# BONDS DISPLAY
 	# v_card is already declared at top
@@ -1295,3 +1353,147 @@ func _spawn_floating_text(pos: Vector3, text: String, color: Color):
 
 func _on_sb_select_unit(unit):
 	update_unit_info(unit)
+
+
+# --- STATUS GLOSSARY ---
+func _on_glossary_pressed():
+	if glossary_window:
+		glossary_window.visible = not glossary_window.visible
+		if glossary_window.visible:
+			glossary_window.get_parent().move_child(glossary_window, -1) # Bring to front
+		return
+	_create_glossary_window()
+
+func _create_glossary_window():
+	glossary_window = PanelContainer.new()
+	glossary_window.name = "GlossaryWindow"
+	# Center Screen
+	glossary_window.set_anchors_preset(Control.PRESET_CENTER)
+	glossary_window.custom_minimum_size = Vector2(500, 600)
+	glossary_window.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	glossary_window.grow_vertical = Control.GROW_DIRECTION_BOTH
+	
+	# Solid Background
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)
+	style.border_width_left = 2; style.border_width_top = 2
+	style.border_width_right = 2; style.border_width_bottom = 2
+	style.border_color = Color(0.4, 0.4, 0.4)
+	style.corner_radius_top_left = 8; style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8; style.corner_radius_bottom_right = 8
+	glossary_window.add_theme_stylebox_override("panel", style)
+	
+	add_child(glossary_window)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	margin.add_child(vbox)
+	glossary_window.add_child(margin)
+	
+	# Header
+	var header = HBoxContainer.new()
+	var title = Label.new()
+	title.text = "Status Effect Glossary"
+	title.add_theme_font_size_override("font_size", 24)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	
+	var close_btn = Button.new()
+	close_btn.text = "X"
+	close_btn.custom_minimum_size = Vector2(30, 30)
+	close_btn.pressed.connect(func(): glossary_window.visible = false)
+	header.add_child(close_btn)
+	vbox.add_child(header)
+	
+	vbox.add_child(HSeparator.new())
+	
+	# Scroll List
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+	
+	var list_vbox = VBoxContainer.new()
+	scroll.add_child(list_vbox)
+	list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	# Populate
+	_populate_glossary_list(list_vbox, "res://scripts/resources/statuses")
+	_populate_glossary_list(list_vbox, "res://scripts/resources/effects")
+	
+	if list_vbox.get_child_count() == 0:
+		var empty = Label.new()
+		empty.text = "No status effects found."
+		list_vbox.add_child(empty)
+
+func _populate_glossary_list(container, path):
+	var dir = DirAccess.open(path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(".gd"):
+				var full_path = path + "/" + file_name
+				var script_res = load(full_path)
+				if script_res:
+					# Instantiate to check properties
+					# Assuming resource/script has default values
+					var inst = script_res.new()
+					if "display_name" in inst:
+						_add_glossary_row(container, inst)
+					# inst is usually RefCounted, auto-freed if not held
+			file_name = dir.get_next()
+
+func _add_glossary_row(container, effect_inst):
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 15)
+	
+	# Icon
+	var icon_rect = TextureRect.new()
+	icon_rect.custom_minimum_size = Vector2(48, 48)
+	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	
+	if "icon" in effect_inst and effect_inst.icon:
+		icon_rect.texture = effect_inst.icon
+	else:
+		# Fallback Square
+		var ph = GradientTexture2D.new()
+		ph.width=48; ph.height=48
+		ph.fill = GradientTexture2D.FILL_SQUARE
+		var g = Gradient.new()
+		if "type" in effect_inst and effect_inst.type == 1: # Debuff
+			g.colors = [Color.RED, Color.DARK_RED]
+		else:
+			g.colors = [Color.GREEN, Color.DARK_GREEN]
+		ph.gradient = g
+		icon_rect.texture = ph
+	
+	row.add_child(icon_rect)
+	
+	# Text Info
+	var text_vbox = VBoxContainer.new()
+	text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	var name_lbl = Label.new()
+	name_lbl.text = effect_inst.display_name
+	name_lbl.add_theme_font_size_override("font_size", 18)
+	name_lbl.add_theme_color_override("font_color", Color.WHITE)
+	text_vbox.add_child(name_lbl)
+	
+	var desc_lbl = Label.new()
+	var d_text = effect_inst.description if "description" in effect_inst else ""
+	if d_text == "": d_text = "(No description)"
+	desc_lbl.text = d_text
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_lbl.modulate = Color(0.8, 0.8, 0.8)
+	text_vbox.add_child(desc_lbl)
+	
+	row.add_child(text_vbox)
+	
+	container.add_child(row)
+	container.add_child(HSeparator.new())

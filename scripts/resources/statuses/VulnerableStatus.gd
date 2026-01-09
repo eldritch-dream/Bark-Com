@@ -6,6 +6,7 @@ func _init():
 	duration = 1
 	type = EffectType.DEBUFF
 	description = "Take +15% Damage."
+	icon = preload("res://assets/icons/status/vulnerable.svg")
 
 func on_apply(unit):
 	if "modifiers" in unit:

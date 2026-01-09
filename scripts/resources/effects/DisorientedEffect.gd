@@ -5,7 +5,10 @@ var aim_penalty: int = 20
 
 func _init():
 	display_name = "Disoriented"
+	description = "-20 Aim."
+	type = EffectType.DEBUFF
 	duration = 1 # 1 Turn
+	icon = preload("res://assets/icons/status/disoriented.svg")
 
 func on_apply(unit: Node):
 	print("StatusEffect: ", unit.name, " is Disoriented!")

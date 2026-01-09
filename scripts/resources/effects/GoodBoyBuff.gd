@@ -4,7 +4,10 @@ class_name GoodBoyBuff
 
 func _init():
 	display_name = "Good Boy"
+	description = "+10 Aim."
 	duration = 3
+	type = EffectType.BUFF
+	icon = preload("res://assets/icons/status/good_boy.svg")
 
 
 func on_apply(unit: Node):

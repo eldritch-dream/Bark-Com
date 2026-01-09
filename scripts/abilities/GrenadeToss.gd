@@ -56,6 +56,14 @@ func update_stats(user):
 		aoe_radius += 1.0
 
 
+func get_hit_chance_breakdown(_grid_manager, _user, _target) -> Dictionary:
+	var base = 80
+	var breakdown = {"Base Accuracy": base}
+	return {
+		"hit_chance": base,
+		"breakdown": breakdown
+	}
+
 func execute(user, _target_unit, target_tile: Vector2, grid_manager: GridManager) -> String:
 	if charges <= 0:
 		return "No Charges!"

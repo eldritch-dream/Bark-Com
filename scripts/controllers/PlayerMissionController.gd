@@ -310,17 +310,33 @@ func _preview_ability(grid_pos: Vector2, gv: Node):
 		gv.clear_preview_aoe()
 	
 	# 3. Hit Chance Logic (The Refactored One)
-	var target_unit = _get_unit_at(grid_pos)
+	var target_obj = _get_unit_at(grid_pos)
+	
+	# Fallback for interactives (Terminals)
+	if not target_obj:
+		# Use existing helper for destructibles (includes Terminals if they extend DestructibleCover)
+		target_obj = _find_destructible_at(grid_pos)
+		
 	var is_valid = false
-	if target_unit and target_unit != selected_unit:
-		if (
-			(target_unit.get("faction") != selected_unit.get("faction") or target_unit.has_method("take_damage"))
-			and ("visible" in target_unit and target_unit.visible)
-		):
-			is_valid = true
-			
+	if target_obj and target_obj != selected_unit:
+		# Visibility Check (Fog of War) (Props usually visible but good to check)
+		var is_visible = true
+		if "visible" in target_obj: is_visible = target_obj.visible
+		
+		if is_visible:
+			# Unit Check
+			if target_obj.is_in_group("Units"):
+				if target_obj.get("faction") != selected_unit.get("faction") or target_obj.has_method("take_damage"):
+					is_valid = true
+			# Terminal/Prop Check (For Hack or Sabotage)
+			elif target_obj.is_in_group("Terminals") or target_obj.is_in_group("Destructible"):
+				# Allow if ability is relevant (Duck Typing via get_hit_chance return)
+				# Or generic "Interactable" check.
+				# For now, we trust the ability to yield empty dict if invalid.
+				is_valid = true
+
 	if is_valid:
-		var info = selected_ability.get_hit_chance_breakdown(grid_manager, selected_unit, target_unit)
+		var info = selected_ability.get_hit_chance_breakdown(grid_manager, selected_unit, target_obj)
 		if not info.is_empty() and info.has("hit_chance"):
 			
 			# Parse Breakdown Dictionary to String
@@ -335,7 +351,7 @@ func _preview_ability(grid_pos: Vector2, gv: Node):
 				
 			# Standard Offset 1.8 confirmed
 			if _signal_bus:
-				_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_unit.position + Vector3(0, 1.8, 0))
+				_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_obj.position + Vector3(0, 1.8, 0))
 	else:
 		if _signal_bus:
 			_signal_bus.on_hide_hit_chance.emit()
@@ -400,6 +416,33 @@ func _preview_item(grid_pos: Vector2, gv: Node):
 			gv.preview_aoe(aoe_tiles, Color(0.2, 1.0, 0.2, 0.4)) # Green for Items
 		else:
 			gv.clear_preview_aoe()
+			
+		# Hit Chance Helper for Items (e.g. Grenades)
+		if item.get("ability_ref"):
+			var ability_res = item.get("ability_ref")
+			# Check if it's a script or resource class
+			if ability_res is Script or ability_res is Resource:
+				var ab = ability_res.new()
+				# Use refactored check
+				var info = ab.get_hit_chance_breakdown(grid_manager, selected_unit, null)
+				
+				if not info.is_empty() and info.has("hit_chance"):
+					var breakdown_str = ""
+					if info.has("breakdown") and info["breakdown"] is Dictionary:
+						for key in info["breakdown"]:
+							var val = info["breakdown"][key]
+							var sign_str = "+" if val >= 0 else ""
+							breakdown_str += "%s: %s%d\n" % [key, sign_str, val]
+					
+					if _signal_bus:
+						var world_target = grid_manager.get_world_position(grid_pos)
+						_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, world_target + Vector3(0, 1.0, 0))
+				else:
+					if _signal_bus: _signal_bus.on_hide_hit_chance.emit()
+				
+				# Cleanup temp instance (GDScript is ref counted usually but explict free if Object?) 
+				# ReferenceCounted (Resource/Ability) automatically freed.
+		
 	else:
 		gv.clear_preview_aoe()
 

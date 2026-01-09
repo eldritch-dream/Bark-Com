@@ -1,12 +1,17 @@
 extends Node3D
 
 # UnitStatusUI
-# Displays overhead icons in a single text "Bar" to prevent overlap.
+# Displays overhead icons (Sprite3D) for active statuses.
 
 var unit
-var active_statuses: Array = []  # Array of Strings (IDs)
-var label: Label3D
+var sprites: Array[Sprite3D] = []
 
+# Panic Icons
+const PANIC_ICONS = {
+	1: preload("res://assets/icons/status/panic_freeze.svg"),
+	2: preload("res://assets/icons/status/panic_run.svg"),
+	3: preload("res://assets/icons/status/panic_berserk.svg")
+}
 
 func _ready():
 	unit = get_parent()
@@ -14,91 +19,64 @@ func _ready():
 		queue_free()
 		return
 
-	# Create Main Label
-	label = Label3D.new()
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.no_depth_test = true
-	label.fixed_size = false  # World Space Scaling
-	label.pixel_size = 0.004  # Doubled size (was 0.002)
-	label.font_size = 64  # High Res
-	label.outline_render_priority = 0
-	label.outline_size = 12
-	label.outline_modulate = Color.BLACK
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-
-	# Position
-	label.position = Vector3(0, 2.0, 0)
-	add_child(label)
-
 	# Connect Signals
-	SignalBus.on_status_applied.connect(_on_status_applied)
-	SignalBus.on_status_removed.connect(_on_status_removed)
+	SignalBus.on_status_applied.connect(_on_status_changed)
+	SignalBus.on_status_removed.connect(_on_status_changed)
+	# Assuming panic changes triggers stats changed or we might need a specific panic signal?
+	# Usually Panic adds a status or we check each turn. 
+	# For now, let's hook into stats changed too just in case.
+	SignalBus.on_unit_stats_changed.connect(_on_status_changed_wrapper)
 
 	_refresh_full()
 
 
-func _refresh_full():
-	active_statuses.clear()
+func _on_status_changed(_u, _id):
+	if _u == unit:
+		_refresh_full()
 
-	# 1. Effects
+func _on_status_changed_wrapper(u):
+	if u == unit:
+		_refresh_full()
+
+func _refresh_full():
+	# Clear existing
+	for s in sprites:
+		s.queue_free()
+	sprites.clear()
+
+	var icons_to_show = []
+
+	# 1. Active Effects
 	if "active_effects" in unit:
 		for eff in unit.active_effects:
-			active_statuses.append(eff.display_name)
-
+			if "icon" in eff and eff.icon:
+				icons_to_show.append(eff.icon)
+	
 	# 2. Panic State
 	if "current_panic_state" in unit and unit.current_panic_state != 0:
-		var keys = ["NONE", "FREEZE", "RUN", "BERSERK"]
-		var idx = unit.current_panic_state
-		if idx < keys.size():
-			active_statuses.append(keys[idx])
+		if PANIC_ICONS.has(unit.current_panic_state):
+			icons_to_show.append(PANIC_ICONS[unit.current_panic_state])
 
-	_update_label()
+	_create_icons(icons_to_show)
 
 
-func _on_status_applied(u, status_id):
-	if u != unit:
-		return
-	if not active_statuses.has(status_id):
-		active_statuses.append(status_id)
-		_update_label()
-
-
-func _on_status_removed(u, status_id):
-	if u != unit:
-		return
-	if active_statuses.has(status_id):
-		active_statuses.erase(status_id)
-		_update_label()
-
-
-func _update_label():
-	if active_statuses.is_empty():
-		label.text = ""
+func _create_icons(icons: Array):
+	if icons.is_empty():
 		return
 
-	var text = ""
-	for id in active_statuses:
-		text += _get_icon_emoji(id) + " "  # Add space padding
+	var count = icons.size()
+	var spacing = 0.6 # Adjust based on icon size
+	var start_x = -(count - 1) * spacing * 0.5
+	
+	for i in range(count):
+		var tex = icons[i]
+		var sprite = Sprite3D.new()
+		sprite.texture = tex
+		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sprite.pixel_size = 0.005
+		sprite.position = Vector3(start_x + (i * spacing), 2.5, 0)
+		sprite.no_depth_test = true # Ensure visible on top?
+		sprite.render_priority = 10 # Draw on top of unit
+		add_child(sprite)
+		sprites.append(sprite)
 
-	label.text = text
-
-
-func _get_icon_emoji(id):
-	match id:
-		"Poisoned", "Poison":
-			return "🤢"
-		"Stunned", "Stun":
-			return "💫"
-		"BERSERK":
-			return "🤬"
-		"FREEZE", "Frozen":
-			return "🥶"
-		"RUN", "Panic":
-			return "😱"
-		"Confused", "Mind Control":
-			return "😵‍💫"
-		"Good Boy":
-			return "🦴"
-		_:
-			return "⚠️"

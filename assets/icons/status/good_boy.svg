@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 20 C6 20 6 30 10 30 L54 30 C58 30 58 20 54 20 L54 20 C50 16 46 20 10 20 Z" fill="white"/>
+  <circle cx="10" cy="25" r="8" fill="white"/>
+  <circle cx="54" cy="25" r="8" fill="white"/>
+  <text x="32" y="56" font-size="20" text-anchor="middle" fill="white" font-family="sans-serif">GOOD</text>
+</svg>

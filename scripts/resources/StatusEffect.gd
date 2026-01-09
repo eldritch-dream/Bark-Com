@@ -4,6 +4,7 @@ class_name StatusEffect
 enum EffectType { BUFF, DEBUFF, NEUTRAL }
 
 var display_name: String = "Status Effect"
+var icon: Texture2D
 var description: String = ""
 var duration: int = 1  # Turns remaining
 var type: EffectType = EffectType.NEUTRAL
