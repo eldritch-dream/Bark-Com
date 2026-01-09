@@ -5,6 +5,7 @@ var music_slider: HSlider
 var sfx_slider: HSlider
 var text_size_slider: HSlider
 var text_size_value_label: Label
+var fs_check: CheckBox
 
 func _ready():
 	_setup_ui()
@@ -78,7 +79,7 @@ func _setup_ui():
 	# Display Section
 	vbox.add_child(_create_section_label("DISPLAY"))
 	
-	var fs_check = CheckBox.new()
+	fs_check = CheckBox.new()
 	fs_check.text = "Fullscreen"
 	var is_fs = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 	fs_check.button_pressed = is_fs
@@ -201,4 +202,10 @@ func open():
 		if "text_size" in GameManager.settings:
 			text_size_slider.value = GameManager.settings["text_size"]
 			text_size_value_label.text = "(" + str(GameManager.settings["text_size"]) + ")"
+			
+	# Refresh Fullscreen Checkbox
+	if fs_check:
+		var is_fs = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		fs_check.set_pressed_no_signal(is_fs)
+		
 	visible = true

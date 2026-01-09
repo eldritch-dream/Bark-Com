@@ -310,6 +310,7 @@ func apply_class_stats(cls_name: String):
 		print("DEBUG_UNIT: BarkTreeManager not found!")
 
 
+# --- STATUS EFFECTS ---
 # --- ACTION LOGIC ---
 func on_turn_start(all_units = [], grid_manager = null):
 	current_ap = max_ap
@@ -913,8 +914,12 @@ func process_turn_start_effects(grid_manager = null):
 			effect.on_turn_start_with_grid(self, grid_manager)
 		else:
 			effect.on_turn_start(self)
-		if effect.duration <= 0:
-			remove_effect(effect)
+			
+		# Decrement Duration
+		if "duration" in effect:
+			effect.duration -= 1
+			if effect.duration <= 0:
+				remove_effect(effect)
 
 	for ability in abilities:
 		ability.on_turn_start(self)
