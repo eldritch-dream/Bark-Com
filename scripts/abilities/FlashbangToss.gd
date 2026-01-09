@@ -9,21 +9,10 @@ func _init():
 	display_name = "Flashbang"
 	ap_cost = 2
 	ability_range = 5
-	cooldown_turns = 3 # Keep cooldown or use charges? 
-	# User didn't specify strict Charge system for Flashbang, but Grenadier typically uses charges for grenades. 
-	# Let's stick to Cooldown for now unless requested, OR use same Heavy Gear logic? 
-	# Heavy Gear says "Adds +1 Charge to Grenades". Might apply here too.
-	# Let's assume Flashbang is a "Grenade" type.
-	# For simplicity/safety, let's use Cooldowns (can use once per 3 turns), OR Charges (1/mission).
-	# "GrenadeToss" is the default ability. Flashbang is special. XCOM Flashbangs are items usually.
-	# Here it's a perk ability. Abilities usually have cooldowns.
-	# But if it's a "Grenade", Heavy Gear *should* apply?
-	# Let's use Cooldown for active abilities to avoid running out of "fun" buttons, unless it's very powerful.
-	# Stun is very powerful. 1 Charge per mission makes sense for balance.
-	# BUT, user said "Heavy Gear... existing grenade ability...". Didn't explicitly say Flashbang.
-	# I will Use Cooldowns for Flashbang to differentiate.
-	
-	cooldown_turns = 4
+	cooldown_turns = 2
+	uses_charges = true
+	# Charges logic handled in update_stats
+
 var base_aoe_radius: float = 4.0
 var aoe_radius: float = 4.0
 
@@ -32,6 +21,15 @@ func on_turn_start(user):
 	update_stats(user)
 
 func update_stats(user):
+	if not initialized:
+		max_charges = 3
+		charges = 3
+		# Heavy Gear Bonus? Logic says "Grenades". Flashbang is a grenade.
+		if user.has_method("has_perk") and (user.has_perk("grenadier_heavy_gear") or user.has_perk("heavy_gear")):
+			max_charges += 1
+			charges += 1
+		initialized = true
+
 	# Check for Bombardier (Passive Range)
 	if user.has_method("has_perk") and user.has_perk("grenadier_bombardier"):
 		ability_range = 8
@@ -60,6 +58,8 @@ func get_hit_chance_breakdown(_grid_manager, _user, _target) -> Dictionary:
 func execute(user, _target_unit, target_tile: Vector2, grid_manager: GridManager) -> String:
 	if not user.spend_ap(ap_cost):
 		return "Not enough AP!"
+		
+	charges -= 1
 
 	# Scatter Check
 	var hit_chance = 80
@@ -138,4 +138,5 @@ func execute(user, _target_unit, target_tile: Vector2, grid_manager: GridManager
 		on_impact.call()
 
 	start_cooldown()
+	SignalBus.on_combat_action_finished.emit(user)
 	return "Flashbang out!"

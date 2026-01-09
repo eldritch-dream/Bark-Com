@@ -10,6 +10,7 @@ signal on_cancel_command
 signal on_intro_skipped
 signal on_debug_action(action: String)
 signal on_pause_toggle
+signal on_next_unit
 
 
 # Configuration
@@ -59,6 +60,11 @@ func _unhandled_input(event):
 
 	if event.is_action_pressed("ui_cancel"):  # Escape / Right click sometimes maps here
 		on_cancel_command.emit()
+
+	# 4. Shortcuts
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_TAB:
+			on_next_unit.emit()
 
 	# 5. Debug Keys (Global)
 	if event is InputEventKey and event.pressed:

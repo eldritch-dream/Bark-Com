@@ -1,8 +1,7 @@
 extends Ability
 class_name GrenadeToss
 
-var max_charges: int = 1
-var charges: int = 1
+
 var initialized: bool = false
 var heavy_gear_applied: bool = false
 var base_aoe_radius: float = 1.1
@@ -12,7 +11,8 @@ func _init():
 	display_name = "Grenade"
 	ap_cost = 2
 	ability_range = 5
-	cooldown_turns = 0 # No cooldown, just charges
+	cooldown_turns = 2 # Cooldown to prevent spam
+	uses_charges = true
 	# Charges initialized to 1 by default
 
 
@@ -23,8 +23,7 @@ func get_valid_tiles(grid_manager: GridManager, user) -> Array[Vector2]:
 	return grid_manager.get_tiles_in_radius(user.grid_pos, ability_range)
 
 
-func can_use() -> bool:
-	return charges > 0
+
 
 
 func on_turn_start(user):
@@ -188,4 +187,5 @@ func execute(user, _target_unit, target_tile: Vector2, grid_manager: GridManager
 		on_impact.call()  # Fallback if no VFXManager
 
 	# No cooldown to start
+	start_cooldown()
 	return "Grenade Tossed!"

@@ -6,7 +6,7 @@ func _init():
 	display_name = "Suppression Fire"
 	ap_cost = 2
 	ability_range = 10 
-	cooldown_turns = 0
+	cooldown_turns = 3
 	
 func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 	# AoE Suppression
@@ -33,6 +33,7 @@ func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 	
 	user.spend_ap(ap_cost)
 	start_cooldown()
+	SignalBus.on_combat_action_finished.emit(user)
 	return "SUPPRESSION"
 
 func get_valid_tiles(grid_manager: GridManager, user) -> Array[Vector2]:

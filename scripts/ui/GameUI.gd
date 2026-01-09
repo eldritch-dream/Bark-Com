@@ -98,9 +98,24 @@ func _setup_ui():
 	squad_container.add_theme_constant_override("separation", 10)
 	squad_panel.add_child(squad_container)
 	
+	# NEW: Cycle Dog Button (Top of Squad List)
+	var btn_cycle = Button.new()
+	btn_cycle.text = "NEXT DOG [TAB]"
+	btn_cycle.add_theme_color_override("font_color", Color.YELLOW)
+	btn_cycle.custom_minimum_size.y = 40
+	btn_cycle.focus_mode = Control.FOCUS_NONE # Prevent Tab hijacking
+	btn_cycle.pressed.connect(func():
+		var im = get_node_or_null("/root/InputManager")
+		if im and im.has_signal("on_next_unit"):
+			im.on_next_unit.emit()
+	)
+	squad_container.add_child(btn_cycle)
+
+	
 	var squad_header_btn = Button.new()
 	squad_header_btn.text = "FULL SQUAD DETAILS"
 	squad_header_btn.custom_minimum_size = Vector2(150, 30)
+	squad_header_btn.focus_mode = Control.FOCUS_NONE
 	squad_header_btn.pressed.connect(_on_squad_detail_pressed)
 
 	
@@ -109,6 +124,7 @@ func _setup_ui():
 	glossary_btn.text = "?"
 	glossary_btn.tooltip_text = "Status Glossary"
 	glossary_btn.custom_minimum_size = Vector2(30, 30)
+	glossary_btn.focus_mode = Control.FOCUS_NONE
 	glossary_btn.pressed.connect(_on_glossary_pressed)
 	
 	# Container for Header + Glossary
@@ -311,6 +327,7 @@ func _setup_ui():
 	menu_button = Button.new()
 	menu_button.text = "MENU"
 	menu_button.custom_minimum_size = Vector2(80, 0)
+	menu_button.focus_mode = Control.FOCUS_NONE
 	tr_header.add_child(menu_button)
 	menu_button.pressed.connect(toggle_pause_menu)
 
@@ -322,6 +339,7 @@ func _setup_ui():
 	abort_btn.text = "ABORT"
 	abort_btn.modulate = Color(1, 0.4, 0.4)
 	abort_btn.custom_minimum_size = Vector2(80, 0)
+	abort_btn.focus_mode = Control.FOCUS_NONE
 	# Align Right
 	abort_btn.size_flags_horizontal = Control.SIZE_SHRINK_END 
 	top_right_container.add_child(abort_btn)
@@ -344,6 +362,7 @@ func _setup_ui():
 	end_turn_btn.offset_right = -20
 	end_turn_btn.offset_bottom = -20
 	end_turn_btn.custom_minimum_size = Vector2(150, 60)
+	end_turn_btn.focus_mode = Control.FOCUS_NONE
 	root.add_child(end_turn_btn)
 	end_turn_btn.pressed.connect(_on_end_turn_clicked)
 
@@ -405,6 +424,13 @@ func _ready():
 	SignalBus.on_hide_hit_chance.connect(hide_hit_chance)
 	SignalBus.on_turn_banner_finished.connect(func(): pass)
 	SignalBus.on_request_floating_text.connect(_queue_floating_text)
+	
+	# Fix: Refresh UI after combat action (consumes AP/Cooldowns)
+	SignalBus.on_combat_action_finished.connect(func(_user): 
+		if is_instance_valid(selected_unit):
+			_update_unit_card()
+			_refresh_action_bar(selected_unit)
+	)
 	# SignalBus.on_cinematic_mode_changed.connect(_on_cinematic_mode) # Already connected above
 
 
@@ -504,16 +530,17 @@ func _refresh_action_bar(unit):
 				if ability.ap_cost > 0:
 					btn_text += "\n(" + str(ability.ap_cost) + " AP)"
 
-				if "charges" in ability:
+				if "uses_charges" in ability and ability.uses_charges:
 					btn_text += "\n(Ammo: " + str(ability.charges) + ")"
 
 				var btn = _create_action_button(btn_text, func(): _on_ability_clicked(ability))
 
+				if ability.current_cooldown > 0:
+					btn.text += "\n(CD: %d)" % ability.current_cooldown
+				
 				if not ability.can_use():
 					btn.disabled = true
-					if ability.current_cooldown > 0:
-						btn.text += "\n(CD: %d)" % ability.current_cooldown
-					elif "charges" in ability and ability.charges <= 0:
+					if "uses_charges" in ability and ability.uses_charges and ability.charges <= 0:
 						btn.text += "\n(Empty)"
 
 		# Context Action: Retrieve
@@ -782,6 +809,7 @@ func _create_action_button(text: String, callback: Callable):
 	var btn = Button.new()
 	btn.text = text
 	btn.custom_minimum_size = Vector2(100, 60)
+	btn.focus_mode = Control.FOCUS_NONE
 	btn.pressed.connect(callback)
 	# Audio Hook
 	btn.pressed.connect(
@@ -1151,6 +1179,7 @@ func _create_squad_frame(unit):
 	var btn = Button.new()
 	btn.flat = true
 	btn.set_anchors_preset(Control.PRESET_FULL_RECT)
+	btn.focus_mode = Control.FOCUS_NONE
 	frame.add_child(btn)
 	btn.pressed.connect(func(): _select_unit(unit))
 	
@@ -1233,12 +1262,14 @@ func _setup_pause_menu(root_node):
 	var btn_resume = Button.new()
 	btn_resume.text = "RESUME"
 	btn_resume.custom_minimum_size = Vector2(150, 50)
+	btn_resume.focus_mode = Control.FOCUS_NONE
 	btn_resume.pressed.connect(toggle_pause_menu)
 	footer.add_child(btn_resume)
 	
 	var btn_opts = Button.new()
 	btn_opts.text = "OPTIONS"
 	btn_opts.custom_minimum_size = Vector2(150, 50)
+	btn_opts.focus_mode = Control.FOCUS_NONE
 	btn_opts.pressed.connect(_on_options_pressed)
 	footer.add_child(btn_opts)
 	
@@ -1246,6 +1277,7 @@ func _setup_pause_menu(root_node):
 	btn_quit.text = "ABORT MISSION"
 	btn_quit.custom_minimum_size = Vector2(150, 50)
 	btn_quit.modulate = Color(1, 0.4, 0.4)
+	btn_quit.focus_mode = Control.FOCUS_NONE
 	btn_quit.pressed.connect(func(): 
 		toggle_pause_menu()
 		action_requested.emit("Abort")
@@ -1406,6 +1438,7 @@ func _create_glossary_window():
 	var close_btn = Button.new()
 	close_btn.text = "X"
 	close_btn.custom_minimum_size = Vector2(30, 30)
+	close_btn.focus_mode = Control.FOCUS_NONE
 	close_btn.pressed.connect(func(): glossary_window.visible = false)
 	header.add_child(close_btn)
 	vbox.add_child(header)

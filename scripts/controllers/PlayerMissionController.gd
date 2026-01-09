@@ -190,12 +190,73 @@ func _handle_selection_click(grid_pos: Vector2):
 		pass
 
 func select_unit(unit):
+	# Clear previous state/overlays before switching
+	set_input_state(InputState.SELECTING)
+	
 	selected_unit = unit
 	emit_signal("selection_changed", unit)
 	# Sync Main? Main uses signals mostly now.
 	if _signal_bus:
 		_signal_bus.on_ui_select_unit.emit(unit)
 	# Main._set_selected_unit(unit) # Legacy call if needed
+	
+func select_next_unit():
+	print("PMC: Cycle Next Unit Requested.")
+	# 1. Get List of Player Units (Sorted by ID or Index)
+	# TurnManager.units is reliable list
+	if not turn_manager:
+		return
+		
+	var units = turn_manager.units.filter(func(u): 
+		return is_instance_valid(u) and u.get("faction") == "Player" and u.current_hp > 0
+	)
+	
+	if units.is_empty():
+		return
+		
+	# 2. Find Current Index
+	var current_idx = -1
+	if selected_unit in units:
+		current_idx = units.find(selected_unit)
+	
+	# 3. Find Next Candidate (Prioritize Active)
+	var next_unit = null
+	
+	# Loop twice: First pass looks for AP > 0. Second pass accepts any.
+	# Actually, smart cycle: Start from current+1, loop around. 
+	# If we find AP > 0, pick it. If we return to start, pick next index regardless?
+	
+	# Simple strategy: Cycle to next available unit. 
+	# If that unit has 0 AP, continue... unless ALL have 0 AP.
+	
+	var start_idx = (current_idx + 1) % units.size()
+	var check_idx = start_idx
+	var fallback_unit = null
+	
+	for i in range(units.size()):
+		var u = units[check_idx]
+		if u.current_ap > 0:
+			next_unit = u
+			break
+		
+		# Allow selecting 0 AP unit if it's the specific "Next" one and no others are active?
+		# Or just cache it.
+		if fallback_unit == null:
+			fallback_unit = u
+			
+		check_idx = (check_idx + 1) % units.size()
+		
+	if next_unit:
+		select_unit(next_unit)
+	elif fallback_unit:
+		# Everyone is tired, just cycle to next in list
+		# Ensure we don't just reselect current if size > 1
+		if units.size() > 1:
+			select_unit(units[start_idx])
+		else:
+			# Only 1 unit, reselect to center camera/feedback
+			select_unit(units[0])
+
 
 func _handle_move_click(grid_pos: Vector2):
 	print("PMC: _handle_move_click. Unit: ", selected_unit)

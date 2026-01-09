@@ -14,6 +14,11 @@ func get_valid_tiles(grid, user) -> Array[Vector2]:
 
 func execute(user, target_unit, target_tile, grid_manager):
 	if user.has_method("enter_overwatch"):
+		if user.current_ap < ap_cost:
+			return "Not enough AP"
+			
+		user.spend_ap(ap_cost)
 		user.enter_overwatch()
+		SignalBus.on_combat_action_finished.emit(user)
 		return user.name + " enters Overwatch!"
 	return "Error: Unit cannot overwatch."

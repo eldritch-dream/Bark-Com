@@ -1,6 +1,6 @@
 extends "res://scripts/resources/Ability.gd"
 
-var charges = 1
+
 var aoe_radius = 2.5
 
 func _init():
@@ -8,6 +8,7 @@ func _init():
 	ap_cost = 2
 	ability_range = 12
 	cooldown_turns = 1 # Cooldown even if charges limited?
+	uses_charges = true
 	
 func get_valid_tiles(grid_manager, user) -> Array[Vector2]:
 	return grid_manager.get_tiles_in_radius(user.grid_pos, float(ability_range))
@@ -58,6 +59,14 @@ func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 			if obj.has_method("take_damage"):
 				obj.take_damage(999) # INSTANT DETONATION
 				print("Rocket detonated ", obj.name)
+
+	# Deduct AP
+	if user.has_method("spend_ap"):
+		user.spend_ap(ap_cost)
+		
+	start_cooldown()
+	SignalBus.on_combat_action_finished.emit(user)
+	return "ROCKET AWAY!"
 		
 	# Destroy Cover? (Requires GridManager logic for cover destruction)
 	# grid_manager.destroy_cover_at_world(target_pos, 2.0)
@@ -67,7 +76,5 @@ func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 	
 	user.spend_ap(ap_cost)
 	start_cooldown()
+	SignalBus.on_combat_action_finished.emit(user)
 	return "ROCKET"
-
-func can_use() -> bool:
-	return charges > 0 and super.can_use()

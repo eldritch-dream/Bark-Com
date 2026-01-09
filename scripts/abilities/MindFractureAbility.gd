@@ -58,7 +58,17 @@ func execute(user, target_unit, _target_tile: Vector2, _grid_manager: GridManage
 		if status_script and target_unit.has_method("apply_effect"):
 			var status = status_script.new()
 			target_unit.apply_effect(status)
+		
+		# Deduct AP (Hit or Miss/Resist? Usually ability cost is paid always)
+		if user.has_method("spend_ap"):
+			user.spend_ap(ap_cost)
+		start_cooldown()
+		SignalBus.on_combat_action_finished.emit(user)
+			
 		return "Mind Shattered!"
 	else:
 		print("Mind Fracture MISSED ", target_unit.name)
+		if user.has_method("spend_ap"):
+			user.spend_ap(ap_cost)
+		start_cooldown()
 		return "Resisted"

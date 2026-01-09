@@ -68,5 +68,10 @@ func execute(user, target, grid_pos, grid_manager):
 	# Then Main listens and runs `_process_combat`.
 	
 	# Let's add `on_request_standard_attack` to SignalBus?
-	pass
+	# Placeholder execution if this is ever called directly
+	print("StandardAttack Executed.")
+	if user.has_method("spend_ap"):
+		user.spend_ap(ap_cost)
+	
+	SignalBus.on_combat_action_finished.emit(user)
 	return "Attack Initiated"

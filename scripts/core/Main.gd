@@ -265,6 +265,10 @@ func _setup_controllers(gm, gv):
 				im.on_tile_clicked.connect(player_controller.handle_tile_clicked)
 			if not im.on_mouse_hover.is_connected(player_controller.handle_mouse_hover):
 				im.on_mouse_hover.connect(player_controller.handle_mouse_hover)
+			if im.has_signal("on_next_unit"):
+				if not im.on_next_unit.is_connected(player_controller.select_next_unit):
+					im.on_next_unit.connect(player_controller.select_next_unit)
+		
 		
 		# Hook UI Selection
 		if not player_controller.selection_changed.is_connected(_set_selected_unit):

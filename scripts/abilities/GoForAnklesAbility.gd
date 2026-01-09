@@ -50,6 +50,12 @@ func execute(user, target, target_grid, grid_manager):
 		
 		# Start Cooldown
 		start_cooldown()
+		
+		# Deduct AP
+		if user.has_method("spend_ap"):
+			user.spend_ap(ap_cost)
+			
+		SignalBus.on_combat_action_finished.emit(user)
 		return "Used Go For Ankles"
 	
 	return "Invalid Target"

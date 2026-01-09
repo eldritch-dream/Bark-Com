@@ -1,8 +1,6 @@
 extends Ability
 class_name IncendiaryGrenade
 
-var max_charges: int = 1
-var charges: int = 1
 var initialized: bool = false
 
 var base_aoe_radius: float = 2.0
@@ -12,13 +10,23 @@ func _init():
 	display_name = "Incendiary Grenade"
 	ap_cost = 2
 	ability_range = 5
-	cooldown_turns = 4 
+	cooldown_turns = 2
+	uses_charges = true
 
 func on_turn_start(user):
 	super.on_turn_start(user)
 	update_stats(user)
 
 func update_stats(user):
+	if not initialized:
+		max_charges = 2
+		charges = 2
+		# Heavy Gear Bonus
+		if user.has_method("has_perk") and (user.has_perk("grenadier_heavy_gear") or user.has_perk("heavy_gear")):
+			max_charges += 1
+			charges += 1
+		initialized = true
+
 	# Check for Bombardier (Passive Range)
 	if user.has_method("has_perk") and user.has_perk("grenadier_bombardier"):
 		ability_range = 8
@@ -45,6 +53,8 @@ func get_hit_chance_breakdown(_grid_manager, _user, _target) -> Dictionary:
 func execute(user, _target_unit, target_tile: Vector2, grid_manager: GridManager) -> String:
 	if not user.spend_ap(ap_cost):
 		return "Not enough AP!"
+		
+	charges -= 1
 
 	# Scatter Check
 	var hit_chance = 80

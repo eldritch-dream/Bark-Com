@@ -337,6 +337,13 @@ func on_turn_start(all_units = [], grid_manager = null):
 			print(name, " self-cares for 2 HP.")
 
 
+
+func _check_cooldowns_start():
+	for ability in abilities:
+		if ability.has_method("on_turn_start"):
+			ability.on_turn_start(self)
+
+
 func refresh_ap():
 	current_ap = max_ap
 	is_overwatch_active = false
@@ -347,6 +354,7 @@ func refresh_ap():
 func spend_ap(amount: int) -> bool:
 	if current_ap >= amount:
 		current_ap -= amount
+		SignalBus.on_unit_stats_changed.emit(self)
 		if DEBUG_UNIT:
 			print(name, " spent ", amount, " AP. Remaining: ", current_ap)
 		
@@ -504,7 +512,7 @@ func enter_overwatch():
 		aim_bonus = 10
 		print(name, " enters Overwatch with Vigilance (+10 Aim).")
 	
-	current_ap = 0
+	# current_ap = 0 # DISABLED: Cost is handled by Ability now
 	is_overwatch_active = true
 	overwatch_aim_bonus = aim_bonus # Must store this for CombatResolver
 	
@@ -599,18 +607,15 @@ func take_damage(amount: int):
 func heal(amount: int):
 	if is_dead:
 		return
+
 	var old_hp = current_hp
 	current_hp = min(max_hp, current_hp + amount)
-	if DEBUG_UNIT:
-		print(name, " healed ", amount, " HP. HP: ", current_hp, "/", max_hp)
-
 	SignalBus.on_unit_health_changed.emit(self, old_hp, current_hp)
-	SignalBus.on_unit_stats_changed.emit(self)
+	SignalBus.on_request_floating_text.emit(global_position + Vector3(0, 2, 0), str(amount), Color.GREEN)
 
-	SignalBus.on_request_vfx.emit(
-		"HealSparkles", position + Vector3(0, 0.5, 0), Vector3.ZERO, self, null
-	)
-	SignalBus.on_request_floating_text.emit(position, "+" + str(amount), Color.GREEN)
+
+
+
 
 
 func trigger_bond_growth(other_unit: Unit, value: int):
@@ -945,9 +950,7 @@ func _start_turn_updates():
 	process_turn_start_effects()
 
 
-func _check_cooldowns_start():
-	# Redundant if handled in process_turn_start_effects? kept for safety
-	pass
+
 
 
 func _update_effects_start():

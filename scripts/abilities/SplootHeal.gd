@@ -19,4 +19,6 @@ func execute(user, _target_unit, _target_tile: Vector2, _grid_manager: GridManag
 	# Consume all AP
 	if user.current_ap > 0:
 		user.spend_ap(user.current_ap)
+		
+	SignalBus.on_combat_action_finished.emit(user)
 	return "Splooting time. Turn skipped."

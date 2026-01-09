@@ -106,33 +106,22 @@ func spawn_projectile(
 	var tween = create_tween()
 	tween.set_parallel(true)
 
-	# Linear X/Z
-	tween.tween_property(proj, "global_position:x", end_pos.x, duration).set_trans(
-		Tween.TRANS_LINEAR
-	)
-	tween.tween_property(proj, "global_position:z", end_pos.z, duration).set_trans(
-		Tween.TRANS_LINEAR
-	)
-
-	# Quadratic Y (Arc)
-	# We can't easily tween a parabola with one property.
-	# Hack: Tween a Node3D "Pivot" linearly, and tween the child Y locally up and down?
-	# Or use a custom method.
-	# Custom method approach:
-	var mid_time = duration / 2.0
-	(
-		tween
-		. tween_property(proj, "global_position:y", start_pos.y + peak_height, mid_time)
-		. set_ease(Tween.EASE_OUT)
-		. set_trans(Tween.TRANS_QUAD)
-	)
-	(
-		tween
-		. chain()
-		. tween_property(proj, "global_position:y", end_pos.y, mid_time)
-		. set_ease(Tween.EASE_IN)
-		. set_trans(Tween.TRANS_QUAD)
-	)
+	# Motion Logic
+	if projectile_type == "Bullet":
+		# Direct Linear Shot (very fast)
+		duration = 0.15 
+		tween.tween_property(proj, "global_position", end_pos, duration)
+		
+	else:
+		# Default / Grenade (Parabolic Arc)
+		var mid_time = duration / 2.0
+		tween.tween_property(proj, "global_position:x", end_pos.x, duration).set_trans(Tween.TRANS_LINEAR)
+		tween.tween_property(proj, "global_position:z", end_pos.z, duration).set_trans(Tween.TRANS_LINEAR)
+		
+		(tween.tween_property(proj, "global_position:y", start_pos.y + peak_height, mid_time)
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD))
+		(tween.chain().tween_property(proj, "global_position:y", end_pos.y, mid_time)
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD))
 
 	# Rotate for fun
 	var spin_tween = create_tween()  # Separate to not chain

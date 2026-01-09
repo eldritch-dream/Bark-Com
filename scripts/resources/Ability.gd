@@ -31,8 +31,16 @@ func get_hit_chance_breakdown(_grid_manager: GridManager, _user, _target) -> Dic
 
 
 
+@export var uses_charges: bool = false
+@export var max_charges: int = 1
+var charges: int = 1
+
 func can_use() -> bool:
-	return current_cooldown <= 0
+	if current_cooldown > 0:
+		return false
+	if uses_charges and charges <= 0:
+		return false
+	return true
 
 
 func start_cooldown():

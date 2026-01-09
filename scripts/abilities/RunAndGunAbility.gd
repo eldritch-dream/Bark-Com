@@ -19,6 +19,7 @@ func execute(user, target, target_grid, grid_manager):
 	
 	# Start Cooldown
 	start_cooldown()
+	SignalBus.on_combat_action_finished.emit(user)
 	
 	return "Run & Gun activated!"
 
