@@ -1,7 +1,7 @@
 extends PanelContainer
 class_name SquadMemberFrame
 
-var unit_ref: Unit
+var unit_ref
 var hp_bar: ProgressBar
 var sanity_bar: ProgressBar
 var ap_label: Label
@@ -11,7 +11,7 @@ var highlight: StyleBoxFlat
 signal unit_selected(unit)
 
 
-func initialize(unit: Unit):
+func initialize(unit):
 	unit_ref = unit
 	_setup_ui()
 	refresh()
@@ -22,6 +22,17 @@ func initialize(unit: Unit):
 
 
 func _setup_ui():
+	# Instantiate bars early to prevent refresh crash if layout fails
+	hp_bar = ProgressBar.new()
+	hp_bar.custom_minimum_size.y = 8
+	hp_bar.show_percentage = false
+	hp_bar.modulate = Color(0.8, 0.2, 0.2)  # Red
+
+	sanity_bar = ProgressBar.new()
+	sanity_bar.custom_minimum_size.y = 6
+	sanity_bar.show_percentage = false
+	sanity_bar.modulate = Color(0.4, 0.2, 0.8)  # Purple
+
 	# Style
 	custom_minimum_size.x = 120  # Widen frame
 	var style = StyleBoxFlat.new()
@@ -37,11 +48,10 @@ func _setup_ui():
 	# Top: Name + AP
 	var top = HBoxContainer.new()
 	vbox.add_child(top)
-
+	
 	var name_l = Label.new()
-	name_l.text = unit_ref.unit_name if unit_ref.unit_name else unit_ref.name
-	# name_l.clip_text = true # Disable clipping to show full name
-	# Or set min scale?
+	var name_text = unit_ref.unit_name if "unit_name" in unit_ref and unit_ref.unit_name else unit_ref.name
+	name_l.text = name_text
 	name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_l.add_theme_font_size_override("font_size", 16)
@@ -60,7 +70,6 @@ func _setup_ui():
 		port.custom_minimum_size = Vector2(100, 100)  # Slightly larger
 		vbox.add_child(port)
 		port.update_portrait(unit_ref)
-		# No rotation hint in HUD to stay clean
 	else:
 		# Fallback
 		var port_bg = ColorRect.new()
@@ -72,7 +81,6 @@ func _setup_ui():
 	button = Button.new()
 	button.flat = true
 	button.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# Add to self (PanelContainer) so it covers children
 	add_child(button)
 	button.pressed.connect(
 		func():
@@ -81,16 +89,7 @@ func _setup_ui():
 	)
 
 	# Bottom: Bars
-	hp_bar = ProgressBar.new()
-	hp_bar.custom_minimum_size.y = 8
-	hp_bar.show_percentage = false
-	hp_bar.modulate = Color(0.8, 0.2, 0.2)  # Red
 	vbox.add_child(hp_bar)
-
-	sanity_bar = ProgressBar.new()
-	sanity_bar.custom_minimum_size.y = 6
-	sanity_bar.show_percentage = false
-	sanity_bar.modulate = Color(0.4, 0.2, 0.8)  # Purple
 	vbox.add_child(sanity_bar)
 
 

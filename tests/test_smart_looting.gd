@@ -120,7 +120,8 @@ func test_auto_pickup():
 	# 4. Check Unit Inventory[0] != null.
 	
 	# Reset
-	unit.inventory = [null, null]
+	unit.inventory[0] = null
+	unit.inventory[1] = null
 	
 	# Move Again (simulated)
 	unit.state_machine.transition_to("Moving", {

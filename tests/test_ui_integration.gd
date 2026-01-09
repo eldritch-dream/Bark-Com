@@ -18,6 +18,9 @@ class MockUnit:
 	var faction = "Player"
 	var inventory = []
 	var abilities = []
+	var max_sanity = 100
+	var current_sanity = 100
+	var current_ap = 2
 
 
 func _ready():
@@ -32,8 +35,7 @@ func _ready():
 
 	test_signal_connection_and_processing()
 	
-	print("--- ALL UI TESTS PASSED ---")
-	get_tree().quit()
+
 
 func test_signal_connection_and_processing():
 	var gui = GameUI_Script.new()
@@ -48,17 +50,21 @@ func test_signal_connection_and_processing():
 	# Adding to root to trigger lifecycle.)
 	get_tree().root.add_child(gui)
 	
+	var failed = false
+
 	# 1. Test Squad Init Signal
 	var units = [MockUnit.new(), MockUnit.new()]
 	print("Emitting on_squad_list_initialized...")
 	SignalBus.on_squad_list_initialized.emit(units)
+	await get_tree().process_frame # Wait for UI update
 	
 	# Verification: Check if gui.squad_list_container has children
 	# accessing private vars for test is okay
-	if gui.squad_list_container.get_child_count() == 2:
+	if gui.squad_container.get_child_count() == 2:
 		print("PASS [Squad List Init]: Created 2 frames.")
 	else:
-		print("FAIL [Squad List Init]: Expected 2 frames, got ", gui.squad_list_container.get_child_count())
+		printerr("FAIL [Squad List Init]: Expected 2 frames, got ", gui.squad_container.get_child_count())
+		failed = true
 
 	# 2. Test Log Signal
 	print("Emitting on_combat_log_event...")
@@ -73,16 +79,26 @@ func test_signal_connection_and_processing():
 	if gui.pause_menu and gui.pause_menu.visible:
 		print("PASS [Pause Menu]: Menu became visible.")
 	else:
-		print("FAIL [Pause Menu]: Menu did not open.")
+		printerr("FAIL [Pause Menu]: Menu did not open.")
+		failed = true
 		
 	# 4. Test Select Unit Signal
 	print("Emitting on_ui_select_unit...")
 	var ref_unit = MockUnit.new()
 	ref_unit.name = "SelectionTest"
 	SignalBus.on_ui_select_unit.emit(ref_unit)
+	
 	if gui.selected_unit == ref_unit:
 		print("PASS [Selection]: Unit selected correctly.")
 	else:
-		print("FAIL [Selection]: Expected unit selection not applied.")
+		printerr("FAIL [Selection]: Expected unit selection not applied.")
+		failed = true
 
 	gui.queue_free()
+	
+	if failed:
+		print("--- UI TESTS FAILED ---")
+		get_tree().quit(1)
+	else:
+		print("--- ALL UI TESTS PASSED ---")
+		get_tree().quit(0)

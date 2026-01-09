@@ -561,7 +561,7 @@ func _refresh_action_bar(unit):
 
 func _check_retrieve_action(unit):
 	# Check for "Treat Bag" or "Lost Human" adjacent
-	var objs = unit.get_tree().get_nodes_in_group("Objectives")
+	var objs = get_tree().get_nodes_in_group("Objectives")
 	for obj in objs:
 		if is_instance_valid(obj) and (obj.name == "Treat Bag" or obj.name == "Lost Human"):
 			var dist = unit.grid_pos.distance_to(obj.grid_pos)

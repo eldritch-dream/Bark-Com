@@ -106,8 +106,9 @@ func _setup_ui():
 	text_size_slider.step = 2
 	# Default or Global
 	var current_theme = ThemeDB.get_project_theme()
-	if get_tree().current_scene.theme:
-		current_theme = get_tree().current_scene.theme
+	var scene = get_tree().current_scene
+	if scene and "theme" in scene and scene.theme:
+		current_theme = scene.theme
 	
 	# Try to get from global resource if bound
 	# But we can just default to 18

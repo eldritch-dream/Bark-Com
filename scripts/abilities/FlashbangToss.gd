@@ -1,8 +1,7 @@
 extends Ability
 class_name FlashbangToss
 
-var max_charges: int = 1
-var current_charges: int = 1
+
 var initialized: bool = false
 
 func _init():
