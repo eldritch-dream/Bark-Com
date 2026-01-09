@@ -22,43 +22,10 @@ func get_valid_tiles(grid_manager, user) -> Array[Vector2]:
 	return valid
 
 func get_hit_chance_breakdown(grid_manager, user, target) -> Dictionary:
-	var base_acc = user.accuracy
-	var defense_val = 0
-	if "defense" in target:
-		defense_val = target.defense
-		
-	# Distance Falloff
-	var dist = user.grid_pos.distance_to(target.grid_pos)
-	var optimal_range = 5.0 # No penalty within this range
-	var penalty_per_tile = 5.0 # -5% per tile beyond optimal
-	
-	var range_penalty = 0
-	if dist > optimal_range:
-		range_penalty = round((dist - optimal_range) * penalty_per_tile)
-	
-	# Cover (Basic)
-	var cover_val = 0
-	if grid_manager.is_tile_cover(target.grid_pos): 
-		# Need cover calculation logic relative to shooter.
-		# For now, simplistic flat cover if standing on cover tile?
-		# Usually cover provides defense if obstacle is BETWEEN shooter and target.
-		# That requires raycasting. 
-		# Let's trust target.defense includes cover? No, defense is base stats.
-		# For this task (Range Refinement), lets focus on Range Penalty.
-		pass
+	# Delegate to CombatResolver for centralized rules (Infinite Range, Falloff, etc)
+	# CombatResolver.calculate_hit_chance handles all modifiers.
+	return CombatResolver.calculate_hit_chance(user, target, grid_manager)
 
-	var final_chance = base_acc - defense_val - range_penalty - cover_val
-	final_chance = clamp(final_chance, 5, 100) # Minimum 5% per user request
-	
-	return {
-		"hit_chance": final_chance,
-		"breakdown": {
-			"Base Accuracy": base_acc,
-			"Enemy Defense": -defense_val,
-			"Range Penalty": -range_penalty,
-			"Cover": -cover_val
-		}
-	}
 
 func execute(user, target, grid_pos, grid_manager):
 	# Delegate to Main's combat processing via Signal or Direct Call?

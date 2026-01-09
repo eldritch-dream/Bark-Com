@@ -40,10 +40,16 @@ func execute(user, target_unit, target_tile: Vector2, grid_manager: GridManager)
 	# Normal Hit mechanics? Or guaranteed for utility?
 	# Standard XCOM: Has aim check but usually with small penalty or bonus.
 	# Let's standard aim check.
-	var hit_chance = user.accuracy
-	var roll = randi() % 100
+	# Use CombatResolver for consistenct rules (Cover, Range, etc)
+	var CombatResolver = load("res://scripts/managers/CombatResolver.gd")
+	var hit_info = CombatResolver.calculate_hit_chance(user, target_unit, grid_manager)
+	var hit_chance = hit_info["hit_chance"]
 	
-	if roll < hit_chance:
+	var roll = randi() % 100 + 1
+	
+	print("Disabling Shot Roll: ", roll, " vs Chance: ", hit_chance)
+	
+	if roll <= hit_chance:
 		# Visuals: Muzzle Flash (Match Standard Attack)
 		SignalBus.on_request_vfx.emit(
 			"MuzzleFlash",

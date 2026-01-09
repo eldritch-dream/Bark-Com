@@ -446,8 +446,6 @@ static func execute_attack(
 				snapshot["name"] = dead_name
 				GameManager.register_fallen_hero(snapshot, "Killed by " + attacker.name)
 
-				GameManager.register_fallen_hero(snapshot, "Killed by " + attacker.name)
-
 		SignalBus.on_combat_action_finished.emit(attacker)
 		return "HIT"
 	else:

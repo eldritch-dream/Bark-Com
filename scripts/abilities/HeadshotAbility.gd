@@ -68,12 +68,12 @@ func execute(user, target_unit, target_tile: Vector2, grid_manager: GridManager)
 		# Fallback if method missing (shouldn't happen)
 		final_acc = user.accuracy - 20
 	
-	var roll = randi() % 100
+	var roll = randi() % 100 + 1
 	
 	SignalBus.on_combat_action_started.emit(user, target_unit, "Headshot", target_unit.position)
 	print(user.name, " attempts Headshot on ", target_unit.name, " (Acc: ", final_acc, "%)")
 	
-	if roll < final_acc:
+	if roll <= final_acc:
 		# Hit! 2x Damage
 		var dmg = 0
 		if user.has_method("get_weapon_damage"):
