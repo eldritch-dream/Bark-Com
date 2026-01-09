@@ -1,0 +1,65 @@
+name: Godot CI
+
+on:
+  push:
+    branches: [ "main", "master", "dev" ]
+  pull_request:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3 # Update to 4.5 when available or if compatible
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup
+        run: |
+          mkdir -p ~/.config/godot
+          # Ensure export templates or setup if needed, but for headless testing usually fine
+          
+      - name: Run Dynamic Tests
+        timeout-minutes: 15
+        run: |
+          echo "🔍 Discovering Tests..."
+          
+          # Initialize Fail Flag
+          FAIL=0
+          
+          # 1. Run all Test Scenes (*.tscn)
+          # Using find with a loop to handle files
+          find tests -name "*.tscn" -print0 | while IFS= read -r -d '' scene; do
+            echo "🎬 Running Scene: $scene"
+            godot --headless --path . "$scene"
+            if [ $? -ne 0 ]; then
+                echo "❌ FAILURE in $scene"
+                touch .test_failed
+                exit 1 # Exits subshell loop
+            fi
+          done
+          
+          if [ -f .test_failed ]; then exit 1; fi
+
+          # 2. Run Standalone Scripts (*.gd extending SceneTree/MainLoop)
+          find tests -name "*.gd" -print0 | while IFS= read -r -d '' script; do
+            if grep -q -E "extends\s+(SceneTree|MainLoop)" "$script"; then
+              echo "📜 Running Script: $script"
+              godot --headless -s "$script"
+              if [ $? -ne 0 ]; then
+                  echo "❌ FAILURE in $script"
+                  touch .test_failed
+                  exit 1
+              fi
+            fi
+          done
+          
+          if [ -f .test_failed ]; then
+            echo "🔥 SOME TESTS FAILED"
+            rm .test_failed
+            exit 1
+          else
+             echo "✅ ALL TESTS PASSED"
+          fi

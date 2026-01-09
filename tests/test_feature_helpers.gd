@@ -18,6 +18,7 @@ func _ready():
 		get_tree().quit(1)
 	
 	print("--- All Feature Helper Tests Passed ---")
+	get_tree().quit(0)
 	get_tree().quit()
 
 func test_grenade_helper():

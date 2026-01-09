@@ -12,7 +12,7 @@ func _ready():
 	Unit_Script = load("res://scripts/entities/Unit.gd")
 	LootCrate_Script = load("res://scripts/entities/LootCrate.gd")
 	
-	test_auto_pickup()
+	await test_auto_pickup()
 	
 	print("--- Smart Looting Test Passed ---")
 	get_tree().quit()
