@@ -1,8 +1,10 @@
-extends SceneTree
+extends Node
 
-# Usage: godot -s tests/test_pmc_hover.gd
+# Usage: Run via tests/test_pmc_runner.tscn
 
-var PMC_Script
+var PlayerMissionController
+var StandardAttack
+var GridManager
 
 # Mocks
 class MockSignalBus:
@@ -18,23 +20,29 @@ class MockTurnManager:
 class MockGridManager:
 	pass
 
-class MockMain:
-	func get_node(path): return null
+class MockMain extends Node:
+	pass
 
-func _init():
+func _ready():
 	print("--- STARTING PMC HOVER TESTS ---")
-	PMC_Script = load("res://scripts/controllers/PlayerMissionController.gd")
-	if not PMC_Script:
-		printerr("CRITICAL: PMC Script failed to load.")
-		quit(1)
+	await get_tree().process_frame
+	
+	PlayerMissionController = load("res://scripts/controllers/PlayerMissionController.gd")
+	StandardAttack = load("res://scripts/abilities/StandardAttack.gd")
+	GridManager = load("res://scripts/managers/GridManager.gd")
+	
+	if not PlayerMissionController:
+		print("ERROR: Could not load PMC")
+		get_tree().quit(1)
+		return
 
 	test_hover_blocked_by_action()
 	
 	print("--- ALL PMC TESTS PASSED ---")
-	quit()
+	get_tree().quit()
 
 func test_hover_blocked_by_action():
-	var pmc = PMC_Script.new()
+	var pmc = PlayerMissionController.new()
 	var tm = MockTurnManager.new()
 	var sb = MockSignalBus.new()
 	

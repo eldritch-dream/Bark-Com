@@ -1,16 +1,16 @@
-extends SceneTree
+extends Node
 
-# Usage: godot -s tests/test_combat_resolver.gd
+# Usage: Run via tests/test_combat_runner.tscn
 
 var CombatResolver
 
 # Mocks
-class MockGridManager:
+class MockGridManager extends "res://scripts/managers/GridManager.gd":
 	func get_grid_coord(pos): return Vector2(round(pos.x/2), round(pos.z/2))
 	func get_tile_data(pos): return {} # Default no elevation
 	func is_tile_cover(pos): return false
 	
-	var grid_data = {}
+
 
 class MockUnit:
 	var name = "MockUnit"
@@ -30,12 +30,14 @@ class MockWeapon:
 	var damage = 3
 	var display_name = "Rifle"
 
-func _init():
+func _ready():
 	print("--- STARTING COMBAT RESOLVER TESTS ---")
+	await get_tree().process_frame
+	
 	CombatResolver = load("res://scripts/managers/CombatResolver.gd")
 	if not CombatResolver:
 		print("ERROR: Could not load CombatResolver!")
-		quit()
+		get_tree().quit(1)
 		return
 
 	test_base_hit_chance()
@@ -44,7 +46,7 @@ func _init():
 	test_max_hit_chance()
 	
 	print("--- ALL TESTS PASSED ---")
-	quit()
+	get_tree().quit()
 
 func assert_eq(actual, expected, context):
 	if actual != expected:
