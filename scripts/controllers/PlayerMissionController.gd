@@ -117,6 +117,11 @@ func handle_mouse_hover(grid_pos: Vector2):
 	var gv = _get_grid_visualizer()
 	if not gv: return
 
+	# Delegate Global Hover Logic (Cursor Shape, etc) to Main
+	if main_node and main_node.has_method("_on_mouse_hover"):
+		main_node._on_mouse_hover(grid_pos)
+
+
 	# Prevent hover updates during execution
 	if turn_manager and turn_manager.is_handling_action:
 		if _signal_bus:

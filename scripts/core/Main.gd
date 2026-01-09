@@ -1583,6 +1583,43 @@ func _on_mouse_hover(grid_pos: Vector2):
 	# Show Cursor Highlight ALWAYS if we have a valid grid_pos (UX Pop)
 	gv.show_hover_cursor(grid_pos)
 
+	# --- CURSOR LOGIC ---
+	var cursor_shape = Input.CURSOR_ARROW
+	
+	# Check for Units (Enemy/Player)
+	var hover_unit = _get_unit_at_grid(grid_pos)
+	if hover_unit and is_instance_valid(hover_unit) and hover_unit.visible:
+		if "faction" in hover_unit:
+			if hover_unit.faction == "Enemy":
+				cursor_shape = Input.CURSOR_CROSS
+			# Player/Neutral units typically don't need special cursor unless interactive?
+			# e.g. Syringe Gun targeting friendly? Leave arrow for now.
+	
+	# Check for Interactables (if no unit override)
+	if cursor_shape == Input.CURSOR_ARROW:
+		# Check "Interactive" group (Crates, Terminals)
+		var interactives = get_tree().get_nodes_in_group("Interactive")
+		# print("DEBUG CURSOR: Checking ", interactives.size(), " interactives at ", grid_pos)
+		for obj in interactives:
+			if is_instance_valid(obj) and "grid_pos" in obj:
+				# Precise Check? grid_pos is generally integer-snapped Vector2 from InputManager
+				if obj.grid_pos == grid_pos:
+					# print("DEBUG CURSOR: Match found! Visible: ", obj.visible if "visible" in obj else "Unknown")
+					# HIDDEN INFO CHECK: Must be visible
+					if "visible" in obj and obj.visible:
+						cursor_shape = Input.CURSOR_POINTING_HAND
+						break
+					elif obj is Node3D and obj.visible:
+						cursor_shape = Input.CURSOR_POINTING_HAND
+						break
+	
+	# Force update?
+	if Input.get_current_cursor_shape() != cursor_shape:
+		# print("DEBUG CURSOR: Setting shape to ", cursor_shape)
+		Input.set_default_cursor_shape(cursor_shape) 
+	
+	# --------------------
+
 	# Only preview move if we are in a state that allows movement
 	var is_moving_state = (current_input_state == InputState.MOVING)
 	# User Request: Only show new helper when old helper is visible (i.e. only in MOVING state)
@@ -1719,6 +1756,8 @@ func _clear_targeting_visuals():
 		gv.clear_preview_path()
 		gv.clear_hover_cursor()
 		gv.clear_preview_aoe()
+	
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 	SignalBus.on_combat_log_event.emit("Command Cancelled.", Color.GRAY)
 
 
