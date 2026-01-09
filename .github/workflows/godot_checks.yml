@@ -10,7 +10,7 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.3 # Update to 4.5 when available or if compatible
+      image: barichello/godot-ci:4.5.1
     
     steps:
       - name: Checkout
@@ -19,7 +19,9 @@ jobs:
       - name: Setup
         run: |
           mkdir -p ~/.config/godot
-          # Ensure export templates or setup if needed, but for headless testing usually fine
+      
+      - name: Import Project (Generate Cache)
+        run: godot --headless --editor --quit
           
       - name: Run Dynamic Tests
         timeout-minutes: 15
