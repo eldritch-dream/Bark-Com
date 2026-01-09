@@ -22,7 +22,8 @@ var astar: AStar3D
 func _ready():
 	# For testing, we can generate on ready.
 	# In a real game, a customized GameController would call this.
-	generate_grid()
+	# generate_grid()
+	pass
 
 
 func generate_grid():

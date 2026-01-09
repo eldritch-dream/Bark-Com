@@ -555,6 +555,7 @@ func _handle_hover(screen_pos):
 
 
 func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  # Updated Signature
+	grid_manager.generate_grid() # Ensure grid exists and signals verify
 	active_mission_data = mission
 	print("--- TEST SCENARIO START ---")
 
@@ -749,9 +750,9 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 	vision_manager.initialize(grid_manager, get_node("GridVisualizer"))
 
 	# Force Visualizer to see Grid (Fix for 0 tiles hidden issue)
-	var gv_node = get_node("GridVisualizer")
-	if gv_node.tile_meshes.size() == 0:
-		gv_node.visualize_grid()
+	# var gv_node = get_node("GridVisualizer")
+	# gv_node - Reactive now.
+	pass
 
 	# 5. Setup GameUI - REMOVED (Handled in _ready)
 	# game_ui instance passed or already exists
