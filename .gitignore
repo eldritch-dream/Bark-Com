@@ -28,3 +28,7 @@ Desktop.ini
 *.tmp
 *.log
 *.bak
+
+# Builds and Artifacts
+builds/
+coverage/

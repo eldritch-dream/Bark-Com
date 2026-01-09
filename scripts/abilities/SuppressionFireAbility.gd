@@ -11,7 +11,9 @@ func _init():
 func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 	# AoE Suppression
 	var world_pos = grid_manager.get_world_position(target_pos)
-	var units = grid_manager.get_units_in_radius_world(world_pos, 3.5) # Wide area
+	# Convert Tile Radius to World Radius
+	var world_radius = 3.5 * grid_manager.TILE_SIZE
+	var units = grid_manager.get_units_in_radius_world(world_pos, world_radius) # Wide area
 	
 	if units.size() == 0:
 		print("Suppression Fire hit nothing.") 

@@ -124,25 +124,21 @@ func get_move_path(start: Vector2, end: Vector2) -> Array[Vector2]:
 	return path_2d
 
 
-func calculate_path_cost(path: Array[Vector2]) -> float:
-	var total_cost = 0.0
+func calculate_path_cost(path: Array[Vector2]) -> int:
+	var total_cost = 0
 	if path.size() < 2:
-		return 0.0
+		return 0
 
 	for i in range(1, path.size()):
-		var prev = path[i - 1]
 		var curr = path[i]
-
-		# Base Distance cost (usually 1.0 or 1.414)
-		var dist = prev.distance_to(curr)
-
-		# Weight Multiplier
-		var weight = 1.0
+		
+		# Step Cost (Matches get_reachable_tiles logic)
+		var cost = 1
 		var type = grid_data[curr].get("type", TileType.GROUND)
 		if type == TileType.LADDER:
-			weight = 2.0
-
-		total_cost += dist * weight
+			cost = 2
+			
+		total_cost += cost
 
 	return total_cost
 
@@ -267,9 +263,13 @@ func update_tile_state(
 	# GridVisualizer usually generates once.
 	# We might want to signal this change if we want real-time visual updates of cell colors.
 	# For now, gameplay logic is the priority.
-	print(
-		"GridManager: Updated tile ", coord, " -> Walkable: ", walkable, ", Cover: ", cover_height
-	)
+	# For now, gameplay logic is the priority.
+
+
+func is_tile_cover(coord: Vector2) -> bool:
+	if not grid_data.has(coord):
+		return false
+	return grid_data[coord].get("cover_height", 0.0) > 0.0
 
 
 func refresh_pathfinding(units: Array, ignore_unit = null):
@@ -358,7 +358,17 @@ func get_units_in_radius_world(center: Vector3, radius: float) -> Array:
 	for unit in all_units:
 		if is_instance_valid(unit) and "current_hp" in unit and unit.current_hp > 0:
 			# Check distance (using global_position to be safe)
-			if unit.global_position.distance_to(center) <= radius:
+			var dist = unit.global_position.distance_to(center)
+			# print("GM: Checking unit ", unit.name, " at ", unit.global_position, " Dist to ", center, ": ", dist)
+			if dist <= radius:
 				hit_units.append(unit)
 				
 	return hit_units
+
+
+func get_tiles_in_radius(center_tile: Vector2, radius: float) -> Array[Vector2]:
+	var tiles: Array[Vector2] = []
+	for tile in grid_data:
+		if tile.distance_to(center_tile) <= radius:
+			tiles.append(tile)
+	return tiles

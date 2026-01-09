@@ -1,4 +1,4 @@
-extends "res://scripts/abilities/GrenadeToss.gd"
+extends GrenadeToss
 
 
 func _init():

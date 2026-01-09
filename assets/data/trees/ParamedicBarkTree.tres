@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ClassBarkTree" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassBarkTree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://assets/data/perks/paramedic/paramedic_field_medic.tres" id="2_field"]
+[ext_resource type="Resource" path="res://assets/data/perks/paramedic/paramedic_self_care.tres" id="3_self"]
+[ext_resource type="Resource" path="res://assets/data/perks/paramedic/paramedic_advanced_triage.tres" id="4_adv"]
+[ext_resource type="Resource" path="res://assets/data/perks/paramedic/paramedic_prevention.tres" id="5_prev"]
+[ext_resource type="Resource" path="res://assets/data/perks/paramedic/paramedic_miracle_worker.tres" id="6_miracle"]
+
+[resource]
+script = ExtResource("1_tree")
+class_id = "Paramedic"
+rank_2_options = Array[Resource]([ExtResource("2_field"), ExtResource("3_self")])
+rank_4_options = Array[Resource]([ExtResource("4_adv"), ExtResource("5_prev")])
+rank_6_options = Array[Resource]([ExtResource("6_miracle")])

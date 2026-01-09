@@ -28,6 +28,9 @@ var mobility: int:
 				var tm = get_tree().get_first_node_in_group("TurnManager")
 				if tm and tm.turn_count <= 2:
 					val += 2
+			
+			if BarkTreeManager.has_perk(name, "paramedic_field_medic"):
+				val += 1
 					
 		# Status Modifiers
 		if modifiers.has("mobility"):
@@ -41,6 +44,8 @@ var max_sanity: int:
 		var val = base_max_sanity
 		if BarkTreeManager and BarkTreeManager.has_perk(name, "recruit_good_boy"):
 			val += 10
+		if BarkTreeManager and BarkTreeManager.has_perk(name, "paramedic_field_medic"):
+			val += 10
 		return val
 @export var current_sanity: int = 100
 @export var max_ap: int = 3
@@ -52,7 +57,9 @@ var max_sanity: int:
 @export var defense: int = 10
 @export var armor: int = 0
 @export var crit_chance: int = 0
+@export var damage_bonus: int = 0
 @export var tech_score: int = 0
+@export var willpower: int = 0
 
 @export_group("Vision")
 @export var vision_range: int = 4
@@ -304,7 +311,7 @@ func apply_class_stats(cls_name: String):
 
 
 # --- ACTION LOGIC ---
-func on_turn_start():
+func on_turn_start(all_units = [], grid_manager = null):
 	current_ap = max_ap
 	has_moved = false
 	has_attacked = false
@@ -312,10 +319,22 @@ func on_turn_start():
 	overwatch_shots_dodged_this_turn = 0
 	
 	_check_cooldowns_start()
-	_update_effects_start()
+	
+	# Apply Panic
+	apply_panic_effect(all_units, grid_manager)
+	
+	# Process Effects
+	process_turn_start_effects(grid_manager)
 
 	if has_method("check_zoomies_trigger"):
 		call("check_zoomies_trigger")
+
+	# Self Care Logic
+	print("DEBUG: Self Care Check for ", name, ": ", has_perk("paramedic_self_care"), " HP:", current_hp, "/", max_hp)
+	if has_perk("paramedic_self_care"):
+		if current_hp < max_hp and current_hp > 0:
+			heal(2)
+			print(name, " self-cares for 2 HP.")
 
 
 func refresh_ap():
@@ -341,6 +360,142 @@ func spend_ap(amount: int) -> bool:
 		print(name, " not enough AP!")
 	return false
 
+
+func get_weapon_damage() -> int:
+	var val = 0
+	if primary_weapon:
+		val = primary_weapon.damage
+	return val + damage_bonus
+
+
+func gain_xp(amount: int):
+	current_xp += amount
+	if DEBUG_UNIT:
+		print(name, " gained ", amount, " XP!")
+	SignalBus.on_xp_gained.emit(name, amount)
+	SignalBus.on_request_floating_text.emit(
+		position + Vector3(0, 1, 0), "+" + str(amount) + " XP", Color.GOLD
+	)
+	_check_level_up()
+
+
+func learn_talent(perk_res: Resource):
+	if not perk_res:
+		return
+		
+	print(name, " learning talent: ", perk_res.display_name)
+	
+	# Active Ability Injection
+	if perk_res.get("metadata") and perk_res.metadata.has("active_ability"):
+		var ability_name = perk_res.metadata["active_ability"]
+		
+		# Try "Ability" suffix first, then raw name
+		var paths_to_try = [
+			"res://scripts/abilities/" + ability_name + "Ability.gd",
+			"res://scripts/abilities/" + ability_name + ".gd"
+		]
+		
+		var found_script = null
+		var final_path = ""
+		
+		for p in paths_to_try:
+			if ResourceLoader.exists(p):
+				found_script = load(p)
+				final_path = p
+				break
+		
+		if found_script:
+			# Prevent Duplicates
+			for a in abilities:
+				if a.get_script().resource_path == final_path:
+					print(" - Ability already learned: ", ability_name)
+					return
+
+			var abil_instance = found_script.new()
+			abilities.append(abil_instance)
+			print(" - Injected Ability: ", ability_name, " from ", final_path)
+			
+			# Refresh UI if selected? 
+			# SignalBus.on_unit_stats_changed.emit(self) might handle it.
+		else:
+			print(" - ERROR: Ability script not found for ", ability_name, ". Tried: ", paths_to_try)
+
+	recalculate_stats() # Apply passive bonuses immediately
+	SignalBus.on_unit_stats_changed.emit(self)
+
+
+func recalculate_stats():
+	# 1. Reset to Base (from ClassData if available)
+	if current_class_data:
+		max_hp = current_class_data.base_stats.get("max_hp", 10)
+		accuracy = current_class_data.base_stats.get("accuracy", 65)
+		defense = current_class_data.base_stats.get("defense", 10)
+		armor = current_class_data.base_stats.get("armor", 0)
+		crit_chance = current_class_data.base_stats.get("crit_chance", 0)
+		# Mobility handled via getter properties mostly, but base is set:
+		base_mobility = current_class_data.base_stats.get("mobility", 6)
+		willpower = current_class_data.base_stats.get("willpower", 0)
+	
+	# Reset other stats
+	vision_range = 4
+	smell_range = 12
+	damage_bonus = 0
+	
+# 2. Level Bonuses
+	if current_class_data and current_class_data.stat_growth:
+		for stat in current_class_data.stat_growth:
+			var growth = current_class_data.stat_growth[stat]
+			var bonus = (rank_level - 1) * growth
+			match stat:
+				"max_hp": max_hp += bonus
+				"willpower": willpower += bonus
+				"max_sanity": base_max_sanity += bonus
+				"accuracy": accuracy += bonus
+				"defense": defense += bonus
+				"mobility": base_mobility += bonus
+				"tech_score": tech_score += bonus
+	else:
+		# Fallback (Hardcoded HP)
+		var bonus_hp_level = (rank_level - 1) * 2
+		max_hp += bonus_hp_level
+
+	# 3. Refresh Ability Stats (Perks etc)
+	for ability in abilities:
+		if ability.has_method("update_stats"):
+			ability.update_stats(self)
+
+	if has_perk("heavy_bullet_sponge"):
+		# Previous: max_hp += 4, defense += 1
+		# New: Add 1 flat armor
+		armor += 1
+		print(name, " applies Bullet Sponge (+1 Armor)")
+		
+	if has_perk("heavy_lmg_mastery"):
+		accuracy += 10
+		crit_chance += 5
+		print(name, " applies LMG Mastery (+10 Acc, +5% Crit)")
+
+	if has_perk("sniper_eagle_eye"):
+		vision_range += 4
+		smell_range += 4
+		accuracy += 10
+		print(name, " applies Eagle Eye (+4 Vision/Smell, +10 Acc)")
+		
+	if has_perk("sniper_prepared_position"):
+		defense += 15
+		accuracy += 5
+		print(name, " applies Prepared Position (+15 Def, +5 Acc)")
+		
+	if has_perk("sniper_vital_point"):
+		crit_chance += 20
+		damage_bonus += 3
+		print(name, " applies Vital Point Targeting (+20% Crit, +3 Damage)")
+	
+	# Clamp Current
+	current_hp = min(current_hp, max_hp)
+	SignalBus.on_unit_stats_changed.emit(self)
+
+
 # --- OVERWATCH ---
 func enter_overwatch():
 	# Vigilance Perk: +10 Aim on Overwatch
@@ -358,6 +513,12 @@ func enter_overwatch():
 
 
 func move_to(target_grid_pos: Vector2, world_pos: Vector3):
+	if faction == "Enemy":
+		print("DEBUG: Enemy ", name, " calling move_to!")
+		var stack = get_stack()
+		if stack.size() > 1:
+			print(" - Called from: ", stack[1]["source"], ":", stack[1]["line"], " func: ", stack[1]["function"])
+
 	move_along_path([world_pos], [target_grid_pos])
 
 
@@ -675,80 +836,7 @@ func get_fear_level() -> int:
 
 
 # --- TALENTS & XP ---
-func gain_xp(amount: int):
-	current_xp += amount
-	if DEBUG_UNIT:
-		print(name, " gained ", amount, " XP!")
-	SignalBus.on_xp_gained.emit(name, amount)
-	SignalBus.on_request_floating_text.emit(
-		position + Vector3(0, 1, 0), "+" + str(amount) + " XP", Color.GOLD
-	)
-	_check_level_up()
 
-
-func learn_talent(perk_res: Resource):
-	if not perk_res:
-		return
-		
-	print(name, " learning talent: ", perk_res.display_name)
-	
-	# Active Ability Injection
-	if perk_res.get("metadata") and perk_res.metadata.has("active_ability"):
-		var ability_name = perk_res.metadata["active_ability"]
-		var script_path = "res://scripts/abilities/" + ability_name + "Ability.gd"
-		
-		# Prevent Duplicates
-		for a in abilities:
-			# Check class name or display name? Class name is safe.
-			if a.get_script().resource_path == script_path:
-				print(" - Ability already learned: ", ability_name)
-				return
-
-		if ResourceLoader.exists(script_path):
-			var abil_script = load(script_path)
-			if abil_script:
-				var abil_instance = abil_script.new()
-				abilities.append(abil_instance)
-				print(" - Injected Ability: ", ability_name)
-				
-				# Refresh UI if selected? 
-				# SignalBus.on_unit_stats_changed.emit(self) might handle it.
-		else:
-			print(" - ERROR: Ability script not found at ", script_path)
-
-	recalculate_stats() # Apply passive bonuses immediately
-	SignalBus.on_unit_stats_changed.emit(self)
-
-
-func recalculate_stats():
-	# 1. Reset to Base (from ClassData if available)
-	if current_class_data:
-		max_hp = current_class_data.base_stats.get("max_hp", 10)
-		accuracy = current_class_data.base_stats.get("accuracy", 65)
-		defense = current_class_data.base_stats.get("defense", 10)
-		armor = current_class_data.base_stats.get("armor", 0)
-		crit_chance = current_class_data.base_stats.get("crit_chance", 0)
-		# Mobility handled via getter properties mostly, but base is set:
-		base_mobility = current_class_data.base_stats.get("mobility", 6)
-	
-	# 2. Level Bonuses
-	var bonus_hp_level = (rank_level - 1) * 2
-	max_hp += bonus_hp_level
-	
-	# 3. Perk Bonuses (Hardcoded for now)
-	if has_perk("heavy_bullet_sponge"):
-		# Previous: max_hp += 4, defense += 1
-		# New: Add 1 flat armor
-		armor += 1
-		print(name, " applies Bullet Sponge (+1 Armor)")
-		
-	if has_perk("heavy_lmg_mastery"):
-		accuracy += 10
-		crit_chance += 5
-		print(name, " applies LMG Mastery (+10 Acc, +5% Crit)")
-	
-	# Clamp Current
-	current_hp = min(current_hp, max_hp)
 
 
 func _check_level_up():
@@ -1054,3 +1142,51 @@ func restore_from_snapshot(data: Dictionary):
 		current_hp = int(data["hp"])
 		
 	SignalBus.on_unit_stats_changed.emit(self)
+
+
+func clear_negative_effects():
+	# Use StatusEffect Type if available, plus legacy list as backup
+	var legacy_list = ["Stunned", "Burning", "Bleeding", "Poisoned", "Panic", "Suppressed", "Disoriented", "Confused", "Shredded Armor"]
+	
+	for effect in active_effects.duplicate():
+		var is_debuff = false
+		if "type" in effect and effect.type == StatusEffect.EffectType.DEBUFF:
+			is_debuff = true
+		elif effect.display_name in legacy_list:
+			is_debuff = true
+			
+		if is_debuff:
+			remove_effect(effect)
+			print(name, " cleansed of ", effect.display_name)
+			SignalBus.on_request_floating_text.emit(position + Vector3(0, 2, 0), "CLEANSED", Color.WHITE)
+	
+	# Also clear panic
+	if current_panic_state != PanicState.NONE:
+		current_panic_state = PanicState.NONE
+		panic_turn_count = 0
+		print(name, " panic cleared!")
+		SignalBus.on_request_floating_text.emit(position + Vector3(0, 2, 0), "CALM", Color.WHITE)
+
+func get_hit_chance_breakdown(target_unit) -> Dictionary:
+	# Standard Attack Calculation
+	var base_acc = accuracy
+	var defense_val = 0
+	if "defense" in target_unit:
+		defense_val = target_unit.defense
+	
+	# Cover
+	var cover_val = 0
+	# Cover logic requires GridManager usually. Unit doesn't have reference to GM easily unless passed or global.
+	# We'll skip cover for this basic fallback OR try to access global GM if available.
+	# For now, let's keep it simple: Base - Defense.
+	
+	var final = clamp(base_acc - defense_val - cover_val, 0, 100)
+	
+	return {
+		"hit_chance": final,
+		"breakdown": {
+			"Base Accuracy": base_acc,
+			"Enemy Defense": -defense_val,
+			"Cover": -cover_val
+		}
+	}

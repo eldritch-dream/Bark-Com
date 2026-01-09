@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="ClassData" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassData.gd" id="1_class"]
+[ext_resource type="Script" path="res://scripts/abilities/OverwatchAbility.gd" id="2_abil"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_eagle_eye.tres" id="3_eagle"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_prepared_position.tres" id="4_prep"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_disabling_shot.tres" id="5_dis"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_headshot.tres" id="6_head"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_vital_point.tres" id="7_vital"]
+
+[resource]
+script = ExtResource("1_class")
+display_name = "Sniper"
+description = "Long range precision specialist. High Aim, Low Health."
+icon = null
+base_stats = {
+"accuracy": 75,
+"defense": 5,
+"max_hp": 8,
+"mobility": 5,
+"willpower": 0
+}
+stat_growth = {
+"accuracy": 2,
+"max_hp": 1,
+"willpower": 1
+}
+rank_tree = {
+2: [ExtResource("3_eagle"), ExtResource("4_prep")],
+4: [ExtResource("5_dis"), ExtResource("6_head")],
+6: [ExtResource("7_vital")]
+}
+starting_abilities = Array[Script]([ExtResource("2_abil")])
+talent_tree = {}

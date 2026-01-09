@@ -54,19 +54,18 @@ func execute(user, target, target_grid, grid_manager):
 	
 	return "Invalid Target"
 
-	var valid = []
-	# Adjacent enemies
+func get_valid_tiles(grid_manager, user) -> Array[Vector2]:
+	var valid: Array[Vector2] = []
+	# Adjacent enemies (1.5 tiles ~ Diagonals)
 	if not grid_manager:
 		return []
 
-	# Use grid_manager to access tree or unit list if available
-	# Assuming grid_manager is in the tree
 	var tree = grid_manager.get_tree()
 	if not tree:
 		return []
 
 	for unit in tree.get_nodes_in_group("Units"):
-		if unit != user and unit.faction != user.faction and unit.current_hp > 0:
-			if unit.grid_pos.distance_to(user.grid_pos) <= 1.6: # 1.5 cover diagonals? 1.414. Use 1.6 safe.
+		if is_instance_valid(unit) and unit != user and unit.get("faction") != user.get("faction") and unit.current_hp > 0:
+			if unit.grid_pos.distance_to(user.grid_pos) <= 1.6: 
 				valid.append(unit.grid_pos)
 	return valid

@@ -392,9 +392,13 @@ func complete_mission(
 	for survivor in surviving_corgis_data:
 		for member in roster:
 			if member["name"] == survivor["name"]:
+				# Logic: Persist HP
+				member["hp"] = survivor["hp"]
+				
 				# Logic: If HP critical, set to resting
 				if survivor["hp"] < 5:
 					member["status"] = "Resting"
+
 				else:
 					member["status"] = "Ready"
 

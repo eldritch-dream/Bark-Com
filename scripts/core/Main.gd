@@ -21,7 +21,7 @@ var active_mission_data: Resource = null  # Supports MissionData (Legacy) or Mis
 # Systems
 var mission_manager: MissionManager
 var objective_manager: ObjectiveManager
-
+var player_controller: PlayerMissionController
 
 var grid_manager
 
@@ -47,6 +47,28 @@ func _ready():
 	mission_manager = MissionManager.new()
 	mission_manager.name = "MissionManager"
 	add_child(mission_manager)
+	
+	# Turn Manager
+	
+	turn_manager = null
+	for child in get_children():
+		# Duck Typing Check (safer than script path)
+		if child.has_method("start_game") and child.has_method("register_unit"):
+			turn_manager = child
+			break
+			
+	if not turn_manager:
+		turn_manager = get_node_or_null("TurnManager") 
+
+	if not turn_manager:
+		var tm_script = load("res://scripts/managers/TurnManager.gd")
+		if tm_script:
+			turn_manager = tm_script.new()
+			turn_manager.name = "TurnManager"
+			add_child(turn_manager)
+
+
+
 
 	# Connect Mission Signals
 	mission_manager.wave_started.connect(
@@ -73,7 +95,23 @@ func _ready():
 	main_camera.position = Vector3(5.0, 10.0, 10.0)
 	main_camera.rotation_degrees = Vector3(-45, -45, 0)  # Classic Iso Angle
 
+	main_camera.position = Vector3(5.0, 10.0, 10.0)
+	main_camera.rotation_degrees = Vector3(-45, -45, 0)  # Classic Iso Angle
+
 	add_child(main_camera)
+
+	# Setup GameUI
+	var gui_script = load("res://scripts/ui/GameUI.gd")
+	if gui_script:
+		game_ui = gui_script.new()
+		game_ui.name = "GameUI"
+		add_child(game_ui)
+		# Initialize Dependencies (GameUI needs them early)
+		game_ui.initialize(turn_manager, grid_manager)
+
+	# --- CONTROLLER REFACTOR ---
+	_setup_controllers(gm, gv)
+
 
 	# Cinematic Director
 	var camera_script = load("res://scripts/systems/CinematicCamera.gd")
@@ -201,12 +239,45 @@ func _ready():
 	if not SignalBus.on_request_camera_focus.is_connected(_on_camera_focus_requested):
 		SignalBus.on_request_camera_focus.connect(_on_camera_focus_requested)
 
-	# Phase 75: Input Manager Integration
+# Phase 75: Input Manager Integration
 	if GameManager:
 		GameManager.current_state = GameManager.GameState.MISSION
 	
 	# Signal connections handled at the end of _ready with safety checks.
 
+
+func _setup_controllers(gm, gv):
+	# Instantiate PlayerMissionController
+	print("DEBUG: _setup_controllers called.")
+	var controller_script = load("res://scripts/controllers/PlayerMissionController.gd")
+	if controller_script:
+		print("DEBUG: Script Loaded.")
+		player_controller = controller_script.new()
+		player_controller.name = "PlayerMissionController"
+		add_child(player_controller)
+		# Initialize dependencies (Main=self)
+		player_controller.initialize(self, gm, turn_manager, game_ui, SignalBus)
+		
+		# Connect InputManager
+		var im = get_node_or_null("/root/InputManager") # Singleton
+		if im:
+			if not im.on_tile_clicked.is_connected(player_controller.handle_tile_clicked):
+				im.on_tile_clicked.connect(player_controller.handle_tile_clicked)
+			if not im.on_mouse_hover.is_connected(player_controller.handle_mouse_hover):
+				im.on_mouse_hover.connect(player_controller.handle_mouse_hover)
+		
+		# Hook UI Selection
+		if not player_controller.selection_changed.is_connected(_set_selected_unit):
+			player_controller.selection_changed.connect(_set_selected_unit)
+			
+	# Ensure UI Signals are connected (Safe check)
+	if game_ui:
+		if not game_ui.action_requested.is_connected(_on_action_requested):
+			game_ui.action_requested.connect(_on_action_requested)
+		if not game_ui.ability_requested.is_connected(_on_ability_requested):
+			game_ui.ability_requested.connect(_on_ability_requested)
+		if not game_ui.item_requested.is_connected(_on_item_requested):
+			game_ui.item_requested.connect(_on_item_requested)
 
 func _on_unit_step_completed(_unit):
 	if vision_manager:
@@ -352,6 +423,9 @@ func _on_mission_completed():
 var _mission_end_processed = false
 
 func _on_mission_ended_handler(victory: bool):
+	print("DEBUG: _on_mission_ended_handler called! Victory: ", victory)
+	print("DEBUG: Stack Trace: ", get_stack())
+	
 	if _mission_end_processed:
 		return
 	_mission_end_processed = true
@@ -391,11 +465,14 @@ func _process(_delta):
 			queue_free()
 			return
 
-	# Hover Logic for Hit Chance
-	if current_input_state == InputState.TARGETING:
-		_handle_hover(get_viewport().get_mouse_position())
-	else:
-		SignalBus.on_hide_hit_chance.emit()
+	# Hover Logic delegated to PlayerMissionController
+	# if current_input_state == InputState.TARGETING:
+	# 	_handle_hover(get_viewport().get_mouse_position())
+	# elif current_input_state == InputState.ABILITY_TARGETING:
+	# 	# Custom logic handled in _on_mouse_hover
+	# 	pass
+	# else:
+	# 	SignalBus.on_hide_hit_chance.emit()
 
 	# Debug Keys (moved to _unhandled_input)
 
@@ -536,7 +613,7 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 	# Double Fallback: If still empty (Fresh save?), spawn Test Recruit.
 	if ready_units.is_empty():
 		ready_units = [{"name": "TestCorgi", "class": "Recruit"}]
-
+		
 	# spawned_units already cleared above
 	deployed_names.clear()
 	var start_tile = Vector2(1, 1)
@@ -552,6 +629,7 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 		var unit = load("res://scripts/entities/CorgiUnit.gd").new()
 		unit.on_death.connect(_on_unit_death)
 		add_child(unit)
+
 
 		# Validate Walkable AND Occupied
 		var target_tile = start_tile
@@ -659,15 +737,13 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 
 
 
-	# Turn Manager Setup
-	turn_manager = TurnManager.new()
-	turn_manager.name = "TurnManager"
-	add_child(turn_manager)
-
 	# 4. Setup VisionManager
-	vision_manager = load("res://scripts/managers/VisionManager.gd").new()
-	vision_manager.name = "VisionManager"
-	add_child(vision_manager)
+	# Only create if not exists
+	if not vision_manager:
+		vision_manager = load("res://scripts/managers/VisionManager.gd").new()
+		vision_manager.name = "VisionManager"
+		add_child(vision_manager)
+	
 	vision_manager.initialize(grid_manager, get_node("GridVisualizer"))
 
 	# Force Visualizer to see Grid (Fix for 0 tiles hidden issue)
@@ -675,11 +751,9 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 	if gv_node.tile_meshes.size() == 0:
 		gv_node.visualize_grid()
 
-	# 5. Setup GameUI
-	game_ui = load("res://scripts/ui/GameUI.gd").new()  # Removed 'var'
-	game_ui.name = "GameUI"
-	add_child(game_ui)
-	game_ui.initialize(turn_manager, grid_manager)
+	# 5. Setup GameUI - REMOVED (Handled in _ready)
+	# game_ui instance passed or already exists
+
 
 	fog_manager = load("res://scripts/managers/FogManager.gd").new()
 	fog_manager.name = "FogManager"
@@ -696,8 +770,7 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 	# Connect InputManager
 	var input_mgr = get_node_or_null("/root/InputManager")
 	if input_mgr:
-		if not input_mgr.on_tile_clicked.is_connected(_on_tile_clicked):
-			input_mgr.on_tile_clicked.connect(_on_tile_clicked)
+		# Note: Mouse/Tile clicks now handled by PlayerMissionController (_setup_controllers)
 		
 		# Ensure signal exists before connecting (it might not if InputManager is old version)
 		if input_mgr.has_signal("on_cancel_command"):
@@ -705,10 +778,7 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 				input_mgr.on_cancel_command.connect(_clear_targeting)
 
 
-		if input_mgr.has_signal("on_mouse_hover"):
-			if not input_mgr.on_mouse_hover.is_connected(_on_mouse_hover):
-				input_mgr.on_mouse_hover.connect(_on_mouse_hover)
-
+		# Pause is global, keep in Main? Or move to Controller?
 		if input_mgr.has_signal("on_pause_toggle"):
 			if not input_mgr.on_pause_toggle.is_connected(_on_pause_toggle):
 				input_mgr.on_pause_toggle.connect(_on_pause_toggle)
@@ -1209,10 +1279,11 @@ func _on_ui_action(action):
 	_clear_targeting()
 
 	if action == "Move":
-		current_input_state = InputState.MOVING
+		if player_controller:
+			player_controller.set_input_state(player_controller.InputState.MOVING)
 		print("Select a tile to Move...")
 		
-		# VISUALIZE MOVEMENT
+		# VISUALIZE MOVEMENT (Static Highlights)
 		if selected_unit and grid_manager and turn_manager:
 			# Ensure pathfinding knows about other units
 			grid_manager.refresh_pathfinding(turn_manager.units, selected_unit)
@@ -1224,7 +1295,8 @@ func _on_ui_action(action):
 			if gv:
 				gv.show_highlights(reachable, Color.CYAN)
 	elif action == "Attack":
-		current_input_state = InputState.TARGETING
+		if player_controller:
+			player_controller.set_input_state(player_controller.InputState.TARGETING)
 		print("Select a target to Attack...")
 	elif action == "Interact":
 		_try_interact()
@@ -1248,22 +1320,59 @@ func _end_player_turn():
 
 
 
+func _on_action_requested(action):
+	print("Main: Action Requested -> ", action)
+	if not player_controller: return
+
+	if action == "Move":
+		player_controller.set_input_state(player_controller.InputState.MOVING)
+		# Optional: Visualize reachable tiles immediately
+		# Controller handles this in set_input_state via state change
+		
+	elif action == "Attack":
+		# Toggle Attack Mode (Default Weapon)
+		player_controller.set_input_state(player_controller.InputState.TARGETING)
+		# Ensure default ability is selected or cleared?
+		player_controller.selected_ability = null # Use default
+		print("Select a target to Attack...")
+		
+	elif action == "Wait":
+		# End Unit Turn
+		selected_unit.spend_ap(999)
+		SignalBus.on_unit_step_completed.emit(selected_unit)
+		player_controller.set_input_state(player_controller.InputState.SELECTING)
+		
+	elif action == "EndTurn":
+		_end_player_turn()
+		
+	elif action == "Reload":
+		# Manual Reload
+		if selected_unit.has_method("reload_weapon"):
+			selected_unit.reload_weapon()
+			SignalBus.on_unit_step_completed.emit(selected_unit)
+			
+	elif action == "Overwatch":
+		# Placeholder
+		print("Overwatch not implemented yet.")
+
+
 func _on_ability_requested(ability):
-	selected_ability = ability
+	if player_controller:
+		player_controller.selected_ability = ability
+		player_controller.set_input_state(player_controller.InputState.ABILITY_TARGETING)
+	
 	print("Ability Selected: ", ability.display_name)
-
-	# If ability is self-target only or range 0, maybe execute immediately?
-	# Or let user click self?
-	# Let's support user clicking for consistency, unless it's strictly self.
-	# SplootHeal has range 0.
-
-	current_input_state = InputState.ABILITY_TARGETING
 	print("Select a target tile for ", ability.display_name)
 
-	current_input_state = InputState.ABILITY_TARGETING
-	print("Select a target tile for ", ability.display_name)
-
-	# Highlights
+	# Highlights (Optional: Controller handles this via _mouse_hover or state set? Controller clears overlays on set_state(Selecting). Does it show highlights on set_state(Ability)?
+	# Controller logic for Mouse Hover shows highlights. 
+	# But INITIAL highlights (for valid tiles) might be needed.
+	# Let's verify Controller does it? Controller.handle_mouse_hover calls _preview_ability -> shows AOE.
+	# But "Valid Tiles" highlights (Yellow) are usually static.
+	# Let's allow Main or Controller to show them.
+	# Controller doesn't have "show static valid tiles" logic yet in `set_input_state`.
+	# I should add that to Controller or keep it here for now.
+	# KEEP HERE for now, using Controller state.
 	var valid = ability.get_valid_tiles(grid_manager, selected_unit)
 	var gv = get_node("GridVisualizer")
 	if gv:
@@ -1273,10 +1382,14 @@ func _on_ability_requested(ability):
 func _on_item_requested(item, slot_index):
 	print("Main: Item requested: ", item.display_name)
 
-	current_input_state = InputState.ITEM_TARGETING
-	selected_ability = null
-	pending_item_action = item
-	pending_item_slot = slot_index
+	if player_controller:
+		player_controller.pending_item_action = item
+		player_controller.pending_item_slot = slot_index
+		player_controller.set_input_state(player_controller.InputState.ITEM_TARGETING)
+	
+	# selected_ability = null # Legacy
+	# pending_item_action = item # Legacy? Used in _on_tile_clicked legacy.
+
 
 	# Visuals
 	var valid_tiles = []
@@ -1298,7 +1411,66 @@ func _on_item_requested(item, slot_index):
 	game_ui.log_message("Select Target for " + item.display_name)
 
 
-func _on_tile_clicked(grid_pos: Vector2, button_index: int):
+func _execute_ability(ability, user, target, grid_pos):
+	if ability.get_script().resource_path.ends_with("StandardAttack.gd"):
+		print("Main: Executing Standard Attack via Ability Wrapper")
+		await _process_combat(target)
+		return
+	
+	var result = await ability.execute(
+		user, target, grid_pos, grid_manager
+	)
+	print("Ability Result: ", result)
+	if game_ui:
+		game_ui.log_message(str(result))
+	_clear_targeting() # Should clear controller state too? Controller handles its own reset.
+	# But checking "Controller Handles Reset" -> Controller calls start Main._execute. 
+	# Main._clear_targeting resets UI overlay. Controller resets InputState.
+	# Controller MUST reset InputState to SELECTING.
+	if player_controller:
+		player_controller.set_input_state(player_controller.InputState.SELECTING)
+
+
+func _execute_item(user, item, slot_index, target, grid_pos):
+	print("Main: Executing Item ", item.display_name)
+	
+	# Execute logic (via Unit or Ability wrapper?)
+	# Items usually have 'ability_ref' (GrenadeToss) or effect.
+	# Unit.use_item handles consumption?
+	# Let's check Unit.use_item... but we don't have access easily.
+	# Assuming user.use_item exists and works.
+	
+	# If item is Ability-like (GrenadeToss script on Item Resource?)
+	# GrenadeToss is Ability script. Item Resource has 'ability_ref'?
+	# Or Item IS the resource with script?
+	# GrenadeToss.gd extends Ability.
+	# If item is ConsumableItem (Resource), it might have 'effect'.
+	
+	# LEGACY: Unit.use_item(slot_index, target)
+	# But target needs to be determined.
+	# If Item has 'execute', call it?
+	
+	var result = "Used Item"
+	
+	if item.has_method("execute"):
+		result = await item.execute(user, target, grid_pos, grid_manager)
+	elif user.has_method("use_item"):
+		# Fallback to Unit method
+		# But passing target/grid_pos might be tricky if use_item index based.
+		# Ideally item.execute is the way.
+		result = user.use_item(slot_index, target, grid_pos)
+		
+	print("Item Result: ", result)
+	if game_ui:
+		game_ui.log_message(str(result))
+		
+	# Clear
+	_clear_targeting()
+	if player_controller:
+		player_controller.set_input_state(player_controller.InputState.SELECTING)
+
+
+func _on_tile_clicked_LEGACY(grid_pos: Vector2, button_index: int):
 	# 1. Cancel / Right Click
 	if button_index == MOUSE_BUTTON_RIGHT:
 		_clear_targeting()
@@ -1320,6 +1492,13 @@ func _on_tile_clicked(grid_pos: Vector2, button_index: int):
 
 	elif current_input_state == InputState.ABILITY_TARGETING:
 		if selected_ability and selected_unit:
+			# Validate Range
+			var valid_tiles = selected_ability.get_valid_tiles(grid_manager, selected_unit)
+			if not valid_tiles.has(grid_pos):
+				game_ui.log_message("Target out of range!")
+				print("Main: Ignored click at ", grid_pos, " - Out of Range.")
+				return
+
 			var world_pos = grid_manager.get_world_position(grid_pos)
 			var target_unit = _get_unit_at_grid(grid_pos)
 			var result = await selected_ability.execute(
@@ -1426,28 +1605,78 @@ func _on_mouse_hover(grid_pos: Vector2):
 
 	elif current_input_state == InputState.ABILITY_TARGETING:
 		gv.clear_preview_path()
+		# DEBUG TRACE
+		var overlay_debug = "State: ABILITY_TARGETING | Ability: " + str(selected_ability.display_name if selected_ability else "None")
+		print(overlay_debug)
+		
 		if selected_ability and "aoe_radius" in selected_ability:
 			var r = selected_ability.aoe_radius
 			var center_world = grid_manager.get_world_position(grid_pos)
 			var aoe_tiles = []
 			
-			# Optimization: limit search to bounding box
-			var r_tiles = ceil(r / grid_manager.TILE_SIZE) + 1
+			# Optimization: limit search to bounding box (Grid Units)
+			var r_tiles = ceil(r) + 1
 			for x in range(grid_pos.x - r_tiles, grid_pos.x + r_tiles + 1):
 				for y in range(grid_pos.y - r_tiles, grid_pos.y + r_tiles + 1):
 					var t = Vector2(x, y)
 					if grid_manager.grid_data.has(t):
-						var t_world = grid_manager.get_world_position(t)
-						# Ignore Y for radius? Or use 3D distance?
-						# Cylinder check usually better for gameplay (ignore height diff for selection?)
-						# But physics uses sphere. Let's use horizontal distance to be safe + height tolerance.
-						var dist_h = Vector2(center_world.x, center_world.z).distance_to(Vector2(t_world.x, t_world.z))
-						if dist_h <= r:
+						# Use GRID DISTANCE to match Game Logic (GridManager.get_tiles_in_radius)
+						var dist_grid = grid_pos.distance_to(t)
+						if dist_grid <= r:
 							aoe_tiles.append(t)
 			
+			# Main: Display Hit Chance for Single Target Abilities
+			var target_unit = _get_unit_at_grid(grid_pos)
+			
+			# Robust Check
+			var is_valid_target = false
+			if target_unit and target_unit != selected_unit:
+				if "faction" in target_unit and "faction" in selected_unit:
+					if target_unit.faction != selected_unit.faction:
+						is_valid_target = true
+
+			if is_valid_target:
+				if selected_ability.has_method("get_hit_chance_breakdown"):
+					var info = selected_ability.get_hit_chance_breakdown(grid_manager, selected_unit, target_unit)
+					SignalBus.on_show_hit_chance.emit(info["hit_chance"], info["breakdown"], target_unit.position)
+				else:
+					SignalBus.on_hide_hit_chance.emit()
+			else:
+				SignalBus.on_hide_hit_chance.emit()
+
 			gv.preview_aoe(aoe_tiles, Color(1, 0.4, 0.4, 0.4))
 		else:
 			gv.clear_preview_aoe()
+			
+			# Fallback for Abilities without AOE (Single Target)
+			# Fallback for Abilities without AOE (Single Target)
+			if selected_ability:
+				var target_unit = _get_unit_at_grid(grid_pos)
+				if target_unit:
+					print("Main Hover: Found Unit -> ", target_unit.name, " Faction: ", target_unit.get("faction"))
+				
+				# CRASH FIX: Check for 'faction' property existence OR destructible nature
+				var is_valid_target = false
+				if target_unit and target_unit != selected_unit:
+					# 1. Check Faction Match (Enemy)
+					if "faction" in target_unit and "faction" in selected_unit:
+						if target_unit.faction != selected_unit.faction:
+							is_valid_target = true
+					# 2. Check Destructible (Barrel/Prop) - Must have take_damage
+					elif target_unit.has_method("take_damage"):
+						is_valid_target = true
+
+				if is_valid_target:
+					if selected_ability.has_method("get_hit_chance_breakdown"):
+						var info = selected_ability.get_hit_chance_breakdown(grid_manager, selected_unit, target_unit)
+						# Standardize offset with Line 472 (Normal Attack)
+						SignalBus.on_show_hit_chance.emit(info["hit_chance"], info["breakdown"], target_unit.position + Vector3(0, 1.8, 0))
+					else:
+						# DEBUG: Why no hit chance?
+						# print("DEBUG FAILURE: Ability ", selected_ability.display_name, " has no get_hit_chance_breakdown method.")
+						SignalBus.on_hide_hit_chance.emit()
+				else:
+					SignalBus.on_hide_hit_chance.emit()
 
 	else:
 		gv.clear_preview_path()
@@ -1460,6 +1689,15 @@ func _clear_targeting():
 	selected_ability = null
 	pending_item_action = null
 	pending_item_slot = -1
+	
+	if player_controller:
+		player_controller.set_input_state(player_controller.InputState.SELECTING)
+		player_controller.selected_ability = null
+		player_controller.pending_item_action = null
+	
+	_clear_targeting_visuals()
+
+func _clear_targeting_visuals():
 	var gv = get_node("GridVisualizer")
 	if gv:
 		gv.clear_highlights()
@@ -1762,6 +2000,10 @@ func _set_selected_unit(unit):
 			selection_marker.visible = true
 			
 		print("Main: Selected ", unit.name)
+		
+		# Validate Controller Sync
+		if player_controller and player_controller.selected_unit != unit:
+			player_controller.select_unit(unit)
 	else:
 		if selection_marker:
 			selection_marker.target_node = null
@@ -1779,6 +2021,10 @@ func _handle_unit_selection_from_ui(unit):
 	SignalBus.on_ui_select_unit.emit(unit)
 
 	# Reset state
+	if player_controller:
+		player_controller.selected_unit = unit # Ensure sync before state reset
+		player_controller.set_input_state(player_controller.InputState.SELECTING)
+	
 	current_input_state = InputState.SELECTING
 
 	# Focus Camera
@@ -1946,6 +2192,8 @@ func _on_unit_death(unit):
 
 	# Note: The unit who just died might still be in the list until next frame, so we check carefully.
 	# If current_hp <= 0, they are technically dead.
+
+	print("DEBUG: _on_unit_death check. Players Alive: ", players_alive)
 
 	if players_alive == 0:
 		print("Main: LAST SQUAD MEMBER FALLEN!")

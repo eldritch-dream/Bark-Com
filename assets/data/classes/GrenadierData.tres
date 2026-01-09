@@ -1,17 +1,34 @@
-[gd_resource type="Resource" script_class="ClassData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="ClassData" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/ClassData.gd" id="1_class"]
 [ext_resource type="Script" path="res://scripts/abilities/GrenadeToss.gd" id="2_abil"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_bombardier.tres" id="3_bomb"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_heavy_gear.tres" id="4_heavy"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_flashbang.tres" id="5_flash"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_incendiary.tres" id="6_inc"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_big_bada_boom.tres" id="7_boom"]
 
 [resource]
 script = ExtResource("1_class")
 display_name = "Grenadier"
-description = "Explosives expert. Deals splash damage."
+description = "Explosive expert. Area denial and destruction."
+icon = null
 base_stats = {
 "accuracy": 65,
-"defense": 5,
-"max_hp": 10,
-"mobility": 5
+"defense": 10,
+"max_hp": 12,
+"mobility": 5,
+"willpower": 0
 }
-rank_tree = {}
+stat_growth = {
+"accuracy": 1,
+"max_hp": 2,
+"willpower": 1
+}
+rank_tree = {
+2: [ExtResource("3_bomb"), ExtResource("4_heavy")],
+4: [ExtResource("5_flash"), ExtResource("6_inc")],
+6: [ExtResource("7_boom")]
+}
 starting_abilities = Array[Script]([ExtResource("2_abil")])
+talent_tree = {}

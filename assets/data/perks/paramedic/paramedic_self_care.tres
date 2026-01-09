@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "paramedic_self_care"
+display_name = "Self Care"
+description = "Regenerate 2 HP at the start of each turn."
+icon = null
+metadata = {
+"passive_heal": 2
+}

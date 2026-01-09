@@ -311,21 +311,37 @@ func setup(data):
 	var vis = str(d.get("vision", 4))
 	var tch = str(d.get("tech", 0))
 	
+	# Willpower
+	var base_will = int(d.get("willpower", 0))
+	var will_str = str(base_will)
+	# Check against base or just show it. Paramedic has growth.
+	
 	var txt = "[table=4]"
 	txt += "[cell]HP:[/cell][cell][color=red]" + hp + "[/color][/cell]"
 	txt += "[cell]Sanity:[/cell][cell][color=purple]" + san + "[/color][/cell]"
 	txt += "[cell]AP:[/cell][cell][color=cyan]" + ap + "[/color][/cell]"
 	txt += "[cell]Mobility:[/cell][cell]" + spd + "[/cell]"
-	txt += "[cell]Aim:[/cell][cell][color=yellow]" + acc_str + "[/color][/cell]" # Yellow if base, Green if buffed (handled inside acc_str)
+	txt += "[cell]Aim:[/cell][cell][color=yellow]" + acc_str + "[/color][/cell]" 
 	txt += "[cell]Defense:[/cell][cell]" + def_str + "[/cell]"
 	txt += "[cell]Vision:[/cell][cell]" + vis + "[/cell]"
-	txt += "[cell]Tech:[/cell][cell]" + tch + "[/cell]"
+	txt += "[cell]Willpower:[/cell][cell][color=green]" + will_str + "[/color][/cell]"
 	
-	# ROW 2 (Armor / Crit)
-	var armor = str(d.get("armor", 0))
+	# ROW 2 (Armor / Crit / Tech)
+	var arm_val = d.get("armor", 0)
+	if arm_val < 0: arm_val = 0 # Clamp to 0 per user request
+	var armor = str(arm_val)
 	var crit = str(d.get("crit", 0)) + "%"
 	txt += "[cell]Armor:[/cell][cell][color=gray]" + armor + "[/color][/cell]"
 	txt += "[cell]Crit:[/cell][cell][color=red]" + crit + "[/color][/cell]"
+	txt += "[cell]Tech:[/cell][cell]" + tch + "[/cell]"
+	txt += "[cell][/cell][cell][/cell]" # Filler for 4 columns if needed, or Tech fits above. 
+	# Current table is 4 columns (Label, Value, Label, Value).
+	# HP (2), Sanity (2) -> Row 1
+	# AP (2), Mobility (2) -> Row 2
+	# Aim (2), Defense (2) -> Row 3
+	# Vision (2), Willpower (2) -> Row 4
+	# Armor (2), Crit (2) -> Row 5
+	# Tech (2) -> Row 6 (Half)
 	
 	txt += "[/table]"
 	stats_label.text = txt
@@ -415,6 +431,7 @@ func _parse_data(data) -> Dictionary:
 		d["accuracy"] = data.accuracy
 		d["defense"] = data.defense
 		d["vision"] = data.vision_range if "vision_range" in data else 0
+		d["willpower"] = data.willpower if "willpower" in data else 0
 		d["primary_weapon"] = data.primary_weapon
 		d["unlocked_talents"] = []
 		if BarkTreeManager:
@@ -423,7 +440,14 @@ func _parse_data(data) -> Dictionary:
 		if "is_dead" in data and data.is_dead: d["status"] = "KIA"
 		elif "current_panic_state" in data and data.current_panic_state > 0: d["status"] = "Panicked"
 		d["tech"] = data.tech_score if "tech_score" in data else 0
-		d["armor"] = data.armor if "armor" in data else 0
+		
+		# Effective Armor (Base + Modifiers)
+		var base_armor = data.armor if "armor" in data else 0
+		var armor_mod = 0
+		if data.modifiers and data.modifiers.has("armor_change"):
+			armor_mod = data.modifiers["armor_change"]
+		d["armor"] = base_armor + armor_mod
+		
 		d["crit"] = data.crit_chance if "crit_chance" in data else 0
 		
 		# Active Units don't need simulation, they are ALIVE.
@@ -471,12 +495,33 @@ func _parse_data(data) -> Dictionary:
 		d["defense"] = base_stats["defense"]
 		d["mobility"] = base_stats["mobility"]
 		d["max_sanity"] = base_stats["max_sanity"]
+		d["willpower"] = base_stats.get("willpower", 0)
 		d["armor"] = 0
 		d["crit"] = 0
 		
-		# Level Scaling (HP)
-		var level_bonus_hp = (raw_level - 1) * 2
-		d["max_hp"] += level_bonus_hp
+# Level Scaling
+		# Load ClassData again? We found it in step 2 (res).
+		var growth_data = {}
+		var path_res = "res://assets/data/classes/" + raw_class + "Data.tres"
+		if ResourceLoader.exists(path_res):
+			var res_growth = load(path_res)
+			if res_growth and "stat_growth" in res_growth:
+				growth_data = res_growth.stat_growth
+		
+		if growth_data.size() > 0:
+			for stat in growth_data:
+				var bonus = (raw_level - 1) * growth_data[stat]
+				match stat:
+					"max_hp": d["max_hp"] += bonus
+					"willpower": d["willpower"] = d.get("willpower", 0) + bonus
+					"max_sanity": d["max_sanity"] += bonus
+					"accuracy": d["accuracy"] += bonus
+					"defense": d["defense"] += bonus
+					"mobility": d["mobility"] += bonus
+		else:
+			# Fallback
+			var level_bonus_hp = (raw_level - 1) * 2
+			d["max_hp"] += level_bonus_hp
 		
 		# 4. APPLY PERKS
 		d["unlocked_talents"] = []
@@ -495,6 +540,18 @@ func _parse_data(data) -> Dictionary:
 					d["mobility"] += 2
 				"recruit_good_boy":
 					d["max_sanity"] += 10
+				# New Classes
+				"paramedic_field_medic":
+					d["mobility"] += 1
+					d["max_sanity"] += 10
+				"sniper_eagle_eye":
+					d["vision"] = d.get("vision", 4) + 4
+					d["accuracy"] += 10
+				"sniper_prepared_position":
+					d["defense"] += 15
+					d["accuracy"] += 5
+				"sniper_vital_point":
+					d["crit"] += 20
 					
 		# 5. RETAIN STATE
 		# current_hp/sanity should be clamped to new max?

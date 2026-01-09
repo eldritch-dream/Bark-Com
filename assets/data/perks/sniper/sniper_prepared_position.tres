@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "sniper_prepared_position"
+display_name = "Prepared Position"
+description = "+15 Defense, +5 Aim."
+icon = null
+metadata = {
+"defense_bonus": 15,
+"aim_bonus": 5
+}

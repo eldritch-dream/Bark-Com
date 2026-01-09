@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "paramedic_miracle_worker"
+display_name = "Miracle Worker"
+description = "Triage removes all negative effects and restores 5 Sanity."
+icon = null
+metadata = {
+"triage_cleanse": true,
+"sanity_heal": 5
+}

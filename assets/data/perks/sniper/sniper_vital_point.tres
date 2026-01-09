@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "sniper_vital_point"
+display_name = "Vital Point Targeting"
+description = "+20 Crit Chance, +3 Weapon Damage."
+icon = null
+metadata = {
+"crit_bonus": 20,
+"damage_bonus": 3
+}

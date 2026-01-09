@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "sniper_eagle_eye"
+display_name = "Eagle Eye"
+description = "+4 Vision Range, +4 Smell Range, +10 Aim."
+icon = null
+metadata = {
+"vision_bonus": 4,
+"smell_bonus": 4,
+"aim_bonus": 10
+}

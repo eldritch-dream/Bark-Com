@@ -350,8 +350,12 @@ func preview_path(points: Array, color: Color = Color.CYAN):
 	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, mat)
 	
 	for p in points:
+		var pos = p
+		if p is Vector2:
+			pos = grid_manager.get_world_position(p)
+		
 		mesh.surface_set_color(color)
-		mesh.surface_add_vertex(p + Vector3(0, 0.5, 0)) # Lift slightly
+		mesh.surface_add_vertex(pos + Vector3(0, 0.5, 0)) # Lift slightly
 		
 	mesh.surface_end()
 

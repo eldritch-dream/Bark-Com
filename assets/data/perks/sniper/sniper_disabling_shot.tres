@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "sniper_disabling_shot"
+display_name = "Disabling Shot"
+description = "Active: Deals damage and Stuns target."
+icon = null
+metadata = {
+"active_ability": "DisablingShotAbility"
+}

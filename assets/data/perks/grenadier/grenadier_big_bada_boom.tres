@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Perk" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/Perk.gd" id="1_perk"]
+
+[resource]
+script = ExtResource("1_perk")
+id = "grenadier_big_bada_boom"
+display_name = "Big Bada Boom"
+description = "Grenades have larger radius and +2 Damage."
+icon = null
+metadata = {
+"radius_bonus": 1,
+"damage_bonus": 2
+}

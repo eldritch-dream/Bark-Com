@@ -408,11 +408,19 @@ func _on_sb_unit_udpate(unit):
 	if unit == selected_unit:
 		_update_unit_card()
 		_refresh_action_bar(selected_unit)
+	
+	# Update Squad List
+	if turn_manager and turn_manager.units:
+		update_squad_overlay(turn_manager.units)
 
 
 func _on_sb_health_update(unit, _old, _new):
 	if unit == selected_unit:
 		_update_unit_card()
+	
+	# Update Squad List
+	if turn_manager and turn_manager.units:
+		update_squad_overlay(turn_manager.units)
 
 
 func _on_sb_turn_changed(phase_name: String, turn_number: int):
@@ -466,11 +474,17 @@ func _refresh_action_bar(unit):
 				if ability.ap_cost > 0:
 					btn_text += "\n(" + str(ability.ap_cost) + " AP)"
 
+				if "charges" in ability:
+					btn_text += "\n(Ammo: " + str(ability.charges) + ")"
+
 				var btn = _create_action_button(btn_text, func(): _on_ability_clicked(ability))
 
 				if not ability.can_use():
 					btn.disabled = true
-					btn.text += "\n(CD: %d)" % ability.current_cooldown
+					if ability.current_cooldown > 0:
+						btn.text += "\n(CD: %d)" % ability.current_cooldown
+					elif "charges" in ability and ability.charges <= 0:
+						btn.text += "\n(Empty)"
 
 		# Context Action: Retrieve
 		_check_retrieve_action(unit)
@@ -606,29 +620,30 @@ func _update_unit_card():
 
 	if GameManager:
 		var bond_text = ""
-		for other in turn_manager.units:
-			if (
-				is_instance_valid(other)
-				and other != selected_unit
-				and "faction" in other
-				and other.faction == "Player"
-			):
-				var lvl = GameManager.get_bond_level(selected_unit.name, other.name)
-				if lvl > 0:
-					var rank_char = "♥"
-					if lvl == 2:
-						rank_char = "♥♥"
-					if lvl == 3:
-						rank_char = "♥♥♥"
+		if is_instance_valid(turn_manager) and "units" in turn_manager:
+			for other in turn_manager.units:
+				if (
+					is_instance_valid(other)
+					and other != selected_unit
+					and "faction" in other
+					and other.faction == "Player"
+				):
+					var lvl = GameManager.get_bond_level(selected_unit.name, other.name)
+					if lvl > 0:
+						var rank_char = "♥"
+						if lvl == 2:
+							rank_char = "♥♥"
+						if lvl == 3:
+							rank_char = "♥♥♥"
 
-					# Check adjacency for "Active" color?
-					var dist = selected_unit.grid_pos.distance_to(other.grid_pos)
-					var active = dist <= 1.5
+						# Check adjacency for "Active" color?
+						var dist = selected_unit.grid_pos.distance_to(other.grid_pos)
+						var active = dist <= 1.5
 
-					if active:
-						bond_text += "[ON] " + other.name + " " + rank_char + "\n"
-					else:
-						bond_text += other.name + " " + rank_char + "\n"
+						if active:
+							bond_text += "[ON] " + other.name + " " + rank_char + "\n"
+						else:
+							bond_text += other.name + " " + rank_char + "\n"
 
 		bond_label.text = bond_text
 
@@ -768,10 +783,13 @@ func _process(delta):
 	# Update Floating UI Positions (Hit Chance)
 	if hit_chance_active and hit_chance_panel.visible:
 		var cam = get_viewport().get_camera_3d()
-		if cam and not cam.is_position_behind(hit_chance_target_pos):
+		if cam:
 			var screen_pos = cam.unproject_position(hit_chance_target_pos)
 			# Center the panel above the target
 			hit_chance_panel.position = screen_pos - Vector2(hit_chance_panel.size.x / 2, hit_chance_panel.size.y + 20)
+
+			
+			
 			
 			# Check for ALT key to show details
 			if hit_chance_breakdown:
@@ -780,9 +798,7 @@ func _process(delta):
 					hit_chance_breakdown.visible = details_open
 					# Force shrink to minimum size when content changes
 					hit_chance_panel.size.y = 0
-		else:
-			# If behind camera, hide or clamp?
-			hit_chance_panel.visible = false
+
 
 func show_hit_chance(percent: int, breakdown: String, target_pos: Vector3 = Vector3.ZERO):
 	hit_chance_active = true
@@ -942,14 +958,65 @@ func update_squad_overlay(units: Array):
 	if not squad_list_container:
 		return
 		
-	# Clear existing
+	# Check if rebuild needed (Size mismatch or force rebuild)
+	# For simplicity, if units size matches children, just refresh. 
+	# But units array might be different order or content.
+	# Let's rebuild if count differs, otherwise update.
+	if squad_list_container.get_child_count() != units.size():
+		# Clear existing
+		for child in squad_list_container.get_children():
+			child.queue_free()
+			
+		# Populate
+		for unit in units:
+			if is_instance_valid(unit) and unit.get("faction") == "Player":
+				_create_squad_frame(unit)
+	else:
+		# Just refresh values (Assumes order stable)
+		_refresh_squad_overlay_stats()
+
+func _refresh_squad_overlay_stats():
+	if not squad_list_container: return
+	
 	for child in squad_list_container.get_children():
-		child.queue_free()
-		
-	# Populate
-	for unit in units:
-		if is_instance_valid(unit) and unit.get("faction") == "Player":
-			_create_squad_frame(unit)
+		if child.has_meta("unit_ref"):
+			var unit = child.get_meta("unit_ref")
+			if is_instance_valid(unit):
+				# Find components by hierarchy structure in _create_squad_frame
+				# Structure: Frame -> HBox -> VBox (index 2) -> HP (0), San (1), AP (2)
+				var hbox = child.get_child(1) # [0] is Overlay Button usually? No, btn added to frame directly.
+				# Let's check structure:
+				# _create_squad_frame:
+				# frame.add_child(hbox) -> Index 0? No, btn added later.
+				# frame.add_child(btn).
+				# So HBox is Index 0.
+				
+				# Safer Lookup
+				var vbox = null
+				if hbox is HBoxContainer:
+					for c in hbox.get_children():
+						if c is VBoxContainer:
+							vbox = c
+							break
+				
+				if vbox:
+					# HP
+					var hp = vbox.get_child(0)
+					if hp is ProgressBar:
+						hp.max_value = unit.max_hp
+						hp.value = unit.current_hp
+					
+					# Sanity
+					var san = vbox.get_child(1)
+					if san is ProgressBar:
+						san.max_value = unit.max_sanity
+						san.value = unit.current_sanity
+						
+					# AP
+					var ap = vbox.get_child(2)
+					if ap is Label:
+						ap.text = "AP: " + str(unit.current_ap) + "/" + str(unit.max_ap)
+
 
 
 func _create_squad_frame(unit):

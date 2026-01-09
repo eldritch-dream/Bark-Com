@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ClassBarkTree" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassBarkTree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_bombardier.tres" id="2_bomb"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_heavy_gear.tres" id="3_heavy"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_flashbang.tres" id="4_flash"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_incendiary.tres" id="5_inc"]
+[ext_resource type="Resource" path="res://assets/data/perks/grenadier/grenadier_big_bada_boom.tres" id="6_boom"]
+
+[resource]
+script = ExtResource("1_tree")
+class_id = "Grenadier"
+rank_2_options = Array[Resource]([ExtResource("2_bomb"), ExtResource("3_heavy")])
+rank_4_options = Array[Resource]([ExtResource("4_flash"), ExtResource("5_inc")])
+rank_6_options = Array[Resource]([ExtResource("6_boom")])

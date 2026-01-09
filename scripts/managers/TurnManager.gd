@@ -98,7 +98,7 @@ func start_player_turn():
 			# Need GridManager. Find it from unit context or search?
 			# Main.gd creates it as sibling of TurnManager usually.
 			unit.apply_panic_effect(units, gm)
-			unit.process_turn_start_effects(gm)
+			unit.on_turn_start(units, gm)
 
 	# Camera Focus on Lead Corgi (Visuals)d
 	# We focus on the first unit in the list (usually the one spawned first/Lead)

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ClassBarkTree" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ClassBarkTree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_eagle_eye.tres" id="2_eagle"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_prepared_position.tres" id="3_prep"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_disabling_shot.tres" id="4_dis"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_headshot.tres" id="5_head"]
+[ext_resource type="Resource" path="res://assets/data/perks/sniper/sniper_vital_point.tres" id="6_vital"]
+
+[resource]
+script = ExtResource("1_tree")
+class_id = "Sniper"
+rank_2_options = Array[Resource]([ExtResource("2_eagle"), ExtResource("3_prep")])
+rank_4_options = Array[Resource]([ExtResource("4_dis"), ExtResource("5_head")])
+rank_6_options = Array[Resource]([ExtResource("6_vital")])

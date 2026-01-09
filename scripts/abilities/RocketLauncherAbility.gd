@@ -4,10 +4,14 @@ var charges = 1
 var aoe_radius = 2.5
 
 func _init():
-	display_name = "Rocket Launcher (1 Use)"
+	display_name = "Rocket Launcher"
 	ap_cost = 2
 	ability_range = 12
 	cooldown_turns = 1 # Cooldown even if charges limited?
+	
+func get_valid_tiles(grid_manager, user) -> Array[Vector2]:
+	return grid_manager.get_tiles_in_radius(user.grid_pos, float(ability_range))
+	
 	
 func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 	if charges <= 0:
@@ -27,7 +31,8 @@ func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 		await missile.impact
 	
 	# AOE Logic
-	var units = grid_manager.get_units_in_radius_world(world_pos, aoe_radius) 
+	var world_radius = aoe_radius * grid_manager.TILE_SIZE
+	var units = grid_manager.get_units_in_radius_world(world_pos, world_radius) 
 	for unit in units:
 		# Friendly Fire is ENABLED for Rockets
 		unit.take_damage(6)
