@@ -23,14 +23,20 @@ func _ready():
 	add_child(mesh_inst)
 
 
+var grid_manager_ref
 func initialize(pos: Vector2, _grid_manager = null):
 	super.initialize(pos)
+	
+	# Fallback if not passed (Legacy spawner compatibility)
+	if not _grid_manager:
+		_grid_manager = get_tree().get_first_node_in_group("GridManager")
+	
+	grid_manager_ref = _grid_manager
 	# LootCrate specific logic
 	if _grid_manager and "grid_data" in _grid_manager:
-		if _grid_manager.grid_data.has(pos):
-			_grid_manager.grid_data[pos]["unit"] = self
-			# Ensure it remains walkable/active for interaction?
-			# Yes, do NOT disable AStar. Just marking occupancy is enough for spawn logic.
+		if _grid_manager.has_method("register_item"):
+			_grid_manager.register_item(pos, self)
+		# No longer occupying "unit" slot, so it is walkable by default.
 
 
 func interact(user_unit):
@@ -60,6 +66,8 @@ func interact(user_unit):
 		# Only destroy if NOT in TreatBags group (Mission Critical) or if we decide random loot persists?
 		# For now, let's assume OM handles "TreatBags". If not TreatBag, destroy.
 		if not is_in_group("TreatBags"):
+			if grid_manager_ref and grid_manager_ref.has_method("remove_item"):
+				grid_manager_ref.remove_item(grid_pos, self)
 			queue_free()
 
 

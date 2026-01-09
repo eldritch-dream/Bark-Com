@@ -379,9 +379,14 @@ func _spawn_loot():
 	# Setup Position
 	crate.grid_pos = valid_loot_pos
 	crate.position = grid_manager.get_world_position(valid_loot_pos)
-
-	# Add to Scene (Same parent as units)
+	
 	grid_manager.get_parent().add_child(crate)
+	
+	# Proper Initialization (Registers with GridManager for Smart Looting)
+	crate.initialize(valid_loot_pos, grid_manager)
+
+	# Add to Scene (Same parent as units) - Moved above initialize just in case
+
 
 	# Ensure it is in 'Objectives' group for interaction check if needed?
 	# Main._try_interact checks "Objectives" group?

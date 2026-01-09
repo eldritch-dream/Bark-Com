@@ -170,6 +170,14 @@ func _handle_selection_click(grid_pos: Vector2):
 	# Select Unit (if nothing selected or clicking valid target)
 	if target_unit and target_unit.get("faction") != "Neutral":
 		select_unit(target_unit)
+	elif target_unit and target_unit.get("faction") == "Neutral":
+		# Special Interaction (Smart Click)
+		# If clicking a Neutral Interactable (LootCrate), try to interact
+		if target_unit.is_in_group("Interactive") or target_unit.is_in_group("Objectives"):
+			print("PMC: Clicked Neutral Interactive. Delegating to Main.")
+			if main_node.has_method("_process_move_or_interact"):
+				main_node._process_move_or_interact(grid_pos)
+
 	
 	# Deselect if clicking empty ground? (Optional)
 	if not target_unit:

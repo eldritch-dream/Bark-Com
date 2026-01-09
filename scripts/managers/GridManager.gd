@@ -20,10 +20,7 @@ var astar: AStar3D
 
 
 func _ready():
-	# For testing, we can generate on ready.
-	# In a real game, a customized GameController would call this.
-	# generate_grid()
-	pass
+	add_to_group("GridManager")
 
 
 func generate_grid():
@@ -33,9 +30,29 @@ func generate_grid():
 	var generator = load("res://scripts/core/LevelGenerator.gd").new()
 	grid_data = generator.generate_level()
 
+	# Initialize 'items' array for every tile
+	for coord in grid_data:
+		grid_data[coord]["items"] = []
+
 	print("Grid generated with ", grid_data.size(), " tiles.")
 	_setup_astar()
 	emit_signal("grid_generated")
+
+
+func register_item(coord: Vector2, item_node: Node):
+	if grid_data.has(coord):
+		if not grid_data[coord].has("items"):
+			grid_data[coord]["items"] = []
+		grid_data[coord]["items"].append(item_node)
+
+func remove_item(coord: Vector2, item_node: Node):
+	if grid_data.has(coord) and grid_data[coord].has("items"):
+		grid_data[coord]["items"].erase(item_node)
+
+func get_items_at(coord: Vector2) -> Array:
+	if grid_data.has(coord) and grid_data[coord].has("items"):
+		return grid_data[coord]["items"]
+	return []
 
 
 func _get_point_id(coord: Vector2) -> int:

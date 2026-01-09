@@ -89,6 +89,26 @@ func _start_movement():
 			
 		# Wait for tween (BOTH paths must wait)
 		await active_tween.finished
+		
+		# --- AUTO INTERACT (Smart Looting) ---
+		# --- AUTO INTERACT (Smart Looting) ---
+		var gm = unit.get_tree().get_first_node_in_group("GridManager")
+		var om = unit.get_tree().get_first_node_in_group("ObjectiveManager")
+		
+		if gm and gm.has_method("get_items_at"):
+			var items = gm.get_items_at(unit.grid_pos)
+			# Duplicate list because interact might remove them
+			for item in items.duplicate():
+				print(unit.name, " auto-interacting with ", item.name)
+				
+				# Delegate to ObjectiveManager if possible (Handles Mission Logic & Cleanup)
+				if om and om.has_method("handle_interaction"):
+					om.handle_interaction(unit, item)
+				elif item.has_method("interact"):
+					# Fallback for non-mission items
+					item.interact(unit)
+		# -------------------------------------
+
 		SignalBus.on_unit_step_completed.emit(unit)
 
 	is_moving = false
