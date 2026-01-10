@@ -29,7 +29,7 @@ var missions_completed: int = 0
 var mission_level: int = 1 # Difficulty Scaling (1-3+)
 var invasion_progress: int = 0  # 0-100 (Doomsday Clock)
 var inventory: Array = []
-var settings: Dictionary = {"music_vol": 1.0, "sfx_vol": 1.0, "mascot_style": 0} 
+var settings: Dictionary = {"music_vol": 1.0, "sfx_vol": 1.0, "mascot_style": 0, "fullscreen": false} 
 # mascot_style: 0=Normal, 1=Busty, 2=Bustier, 3=Bustiest
 
 # Shop Definition
@@ -641,8 +641,9 @@ func load_game():
 		kibble = base.get("kibble", 100)
 		SignalBus.on_kibble_changed.emit(kibble)
 		missions_completed = base.get("missions_completed", 0)
-		settings = base.get("settings", {"music_vol": 1.0, "sfx_vol": 1.0})
+		settings = base.get("settings", {"music_vol": 1.0, "sfx_vol": 1.0, "fullscreen": false})
 		_apply_audio_settings()
+		_apply_display_settings()
 
 		inventory.clear()
 		for item_name in base.get("inventory", []):
@@ -826,6 +827,16 @@ func _apply_audio_settings():
 	if audio_manager:
 		audio_manager.set_music_volume(settings["music_vol"])
 		audio_manager.set_sfx_volume(settings["sfx_vol"])
+
+
+func _apply_display_settings():
+	var is_fs = settings.get("fullscreen", false)
+	# Use DisplayServer for better Web/Desktop compatibility.
+	# get_window().mode fails on embedded windows (Web).
+	if is_fs:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 func has_save_file() -> bool:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://teststatusrunner"]
+[gd_scene load_steps=2 format=3 uid="uid://df6nqpqufp7rl"]
 
 [ext_resource type="Script" path="res://tests/test_status_effects.gd" id="1_script"]
 

@@ -1331,9 +1331,9 @@ func _refresh_pause_menu():
 # --- NEW PANELS ---
 func _setup_panels():
 	# Options Panel
-	var opt_script = load("res://scripts/ui/OptionsPanel.gd")
-	if opt_script:
-		options_panel = opt_script.new()
+	var opt_scene = load("res://scenes/ui/OptionsMenu.tscn")
+	if opt_scene:
+		options_panel = opt_scene.instantiate()
 		add_child(options_panel)
 		
 	# Squad Detail Panel

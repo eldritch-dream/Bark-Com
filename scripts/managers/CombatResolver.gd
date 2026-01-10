@@ -202,26 +202,37 @@ static func calculate_hit_chance(
 
 
 static func execute_item_effect(
-	attacker, item, target_pos: Vector3, grid_manager: GridManager
+	attacker, item, target_or_pos, grid_manager: GridManager
 ) -> bool:
 	print("CombatResolver: Executing Item ", item.display_name)
 
+	var target_pos = Vector3.ZERO
+	var target_unit = null
+	
+	if typeof(target_or_pos) == TYPE_VECTOR3:
+		target_pos = target_or_pos
+	elif is_instance_valid(target_or_pos) and (target_or_pos is Node3D):
+		target_unit = target_or_pos
+		target_pos = target_unit.position
+	
 	# 1. Ability Logic (Grenades, etc)
 	if item.ability_ref:
 		var ability = item.ability_ref.new()
 		if ability.has_method("execute"):
-			var grid_coord = grid_manager.get_grid_coord(target_pos)
-			ability.execute(attacker, null, grid_coord, grid_manager)
+			var grid_coord = Vector2.ZERO
+			if grid_manager:
+				grid_coord = grid_manager.get_grid_coord(target_pos)
+			ability.execute(attacker, target_unit, grid_coord, grid_manager)
 			return true
 
 	# 2. Simple Effects (Heal, Stress)
-	var grid_coord = grid_manager.get_grid_coord(target_pos)
-	var target_unit = null
-	var units = attacker.get_tree().get_nodes_in_group("Units")
-	for u in units:
-		if is_instance_valid(u) and "grid_pos" in u and u.grid_pos == grid_coord:
-			target_unit = u
-			break
+	if not target_unit and grid_manager:
+		var grid_coord = grid_manager.get_grid_coord(target_pos)
+		var units = attacker.get_tree().get_nodes_in_group("Units")
+		for u in units:
+			if is_instance_valid(u) and "grid_pos" in u and u.grid_pos == grid_coord:
+				target_unit = u
+				break
 
 	if not target_unit:
 		print("CombatResolver: No target unit found for item execution.")

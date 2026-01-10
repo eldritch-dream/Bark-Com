@@ -1477,7 +1477,7 @@ func _execute_item(user, item, slot_index, target, grid_pos):
 		# Fallback to Unit method
 		# But passing target/grid_pos might be tricky if use_item index based.
 		# Ideally item.execute is the way.
-		result = user.use_item(slot_index, target, grid_pos)
+		result = user.use_item(slot_index, target, grid_manager)
 		
 	print("Item Result: ", result)
 	if game_ui:

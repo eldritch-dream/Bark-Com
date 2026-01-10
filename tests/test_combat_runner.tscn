@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://testcombatrunner"]
+[gd_scene load_steps=2 format=3 uid="uid://cx1y64rufp7rl"]
 
 [ext_resource type="Script" path="res://tests/test_combat_resolver.gd" id="1_script"]
 

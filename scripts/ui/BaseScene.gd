@@ -445,9 +445,9 @@ var sfx_slider: HSlider
 
 # REPLACED BY OptionsPanel
 func _setup_settings_panel():
-	var options_script = load("res://scripts/ui/OptionsPanel.gd")
-	if options_script:
-		settings_panel = options_script.new()
+	var options_scene = load("res://scenes/ui/OptionsMenu.tscn")
+	if options_scene:
+		settings_panel = options_scene.instantiate()
 		ui_container.add_child(settings_panel)
 		# It handles its own visibility initialization
 

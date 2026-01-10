@@ -613,6 +613,7 @@ func heal(amount: int):
 	current_hp = min(max_hp, current_hp + amount)
 	SignalBus.on_unit_health_changed.emit(self, old_hp, current_hp)
 	SignalBus.on_request_floating_text.emit(global_position + Vector3(0, 2, 0), str(amount), Color.GREEN)
+	SignalBus.on_request_vfx.emit("HealSparkles", position, Vector3.ZERO, self, null)
 
 
 
@@ -962,7 +963,7 @@ func _update_effects_start():
 	process_turn_start_effects()
 
 
-func use_item(slot_index: int, target_pos: Vector3, grid_manager) -> bool:
+func use_item(slot_index: int, target_or_pos, grid_manager) -> bool:
 	if slot_index < 0 or slot_index >= inventory.size():
 		return false
 	var item = inventory[slot_index]
@@ -975,7 +976,7 @@ func use_item(slot_index: int, target_pos: Vector3, grid_manager) -> bool:
 
 	print(name, " using item ", item.display_name)
 
-	var success = CombatResolver.execute_item_effect(self, item, target_pos, grid_manager)
+	var success = CombatResolver.execute_item_effect(self, item, target_or_pos, grid_manager)
 
 	if success:
 		if item.consume_on_use:
