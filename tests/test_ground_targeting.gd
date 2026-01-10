@@ -13,17 +13,23 @@ func _ready():
 	
 	setup_env()
 	
-	test_ability("GrenadeToss", load("res://scripts/abilities/GrenadeToss.gd"), 80)
-	test_ability("Flashbang", load("res://scripts/abilities/FlashbangToss.gd"), 80)
-	test_ability("RocketLauncher", load("res://scripts/abilities/RocketLauncherAbility.gd"), 100)
-	test_ability("ScatterShot", load("res://scripts/abilities/ScatterShot.gd"), 100)
-	test_ability("SuppressionFire", load("res://scripts/abilities/SuppressionFireAbility.gd"), 100)
+	# Execute Async
+	run_all_tests()
+
+func run_all_tests():
+	await test_ability("GrenadeToss", load("res://scripts/abilities/GrenadeToss.gd"), 80)
+	await test_ability("Flashbang", load("res://scripts/abilities/FlashbangToss.gd"), 80)
+	await test_ability("RocketLauncher", load("res://scripts/abilities/RocketLauncherAbility.gd"), 100)
+	await test_ability("ScatterShot", load("res://scripts/abilities/ScatterShot.gd"), 100)
+	await test_ability("SuppressionFire", load("res://scripts/abilities/SuppressionFireAbility.gd"), 100)
+	await test_ability("IncendiaryGrenade", load("res://scripts/abilities/IncendiaryGrenade.gd"), 80)
 	
 	print("--- ALL GROUND TARGETING TESTS PASSED ---")
 	print("Exiting...")
 	get_tree().quit()
 
 func setup_env():
+
 	# 1. Spy on Real SignalBus
 	# It should be available as 'SignalBus' global
 	if not get_node_or_null("/root/SignalBus"):
@@ -58,7 +64,13 @@ func setup_env():
 	
 
 	# 3. Unit
-	selected_unit = MockUnitGround.new()
+	var MockUnitScript = load("res://tests/MockUnitGround.gd")
+	if not MockUnitScript:
+		printerr("CRITICAL: Failed to load MockUnitGround.gd")
+		get_tree().quit(1)
+		return
+		
+	selected_unit = MockUnitScript.new()
 	selected_unit.name = "TestUnit"
 	add_child(selected_unit)
 	
@@ -70,16 +82,6 @@ func setup_env():
 	pmc.main_node = self # We mock Main as self (Node) which has no methods, so fallbacks trigger
 	pmc.selected_unit = selected_unit
 	pmc.current_input_state = pmc.InputState.ABILITY_TARGETING
-
-class MockUnitGround extends Node:
-	var grid_pos = Vector2(5,5)
-	var faction = 'Player'
-	var mobility = 10
-	var current_ap = 10
-	var stats = {'accuracy': 100}
-	var modifiers = {}
-	func has_perk(p): return false
-	func spend_ap(cost): return true
 
 func test_ability(name, script, expected_chance):
 	print("Testing ", name, "...")
