@@ -1,8 +1,8 @@
 extends SceneTree
 
 func _init():
-	print("Debugger: Loading test_vision.gd...")
-	var script = load("res://tests/test_vision.gd")
+	print("Debugger: Loading test_turn_manager.gd...")
+	var script = load("res://tests/test_turn_manager.gd")
 	if script:
 		print("Debugger: Script Loaded Successfully!")
 		var instance = script.new()

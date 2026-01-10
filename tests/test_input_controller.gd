@@ -43,7 +43,8 @@ class MockGridManager:
 	func get_world_position(grid): return Vector3(grid.x * 2, 0, grid.y * 2)
 	func is_walkable(grid): return true
 	func get_reachable_tiles(start, mob): return [] # Dummy
-
+	func is_valid_destination(tile): return true # Allow all for test
+	
 class MockUI:
 	func log_message(msg): print("UI_LOG: ", msg)
 

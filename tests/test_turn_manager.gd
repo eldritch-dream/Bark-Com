@@ -7,15 +7,16 @@ extends Node
 var tm
 var mock_units = []
 
-class MockUnit extends Node:
+class MockUnit extends Node3D:
 	var faction = "Player"
 	var current_ap = 2
 	var max_ap = 2
 	var current_hp = 10
-	var position = Vector3.ZERO
-	var grid_pos = Vector2.ZERO
+	func _ready():
+		add_to_group("Units")
 	
 	func refresh_ap():
+		print("MockUnit: refresh_ap called for ", name)
 		current_ap = max_ap
 		
 	func on_turn_start(units, gm): pass
@@ -23,8 +24,9 @@ class MockUnit extends Node:
 	func process_turn_start_effects(): pass
 	func apply_panic_effect(units, gm): pass
 	func decide_action(units, gm): 
-		# Simulate instant action
-		emit_signal("action_complete")
+		# Simulate instant action (deferred to allow await)
+		# emit_signal("action_complete") # OLD
+		call_deferred("emit_signal", "action_complete")
 		
 	signal action_complete
 
@@ -41,6 +43,15 @@ func setup_env():
 	tm = load("res://scripts/managers/TurnManager.gd").new()
 	tm.name = "TurnManager"
 	add_child(tm)
+	
+	var gm = Node.new()
+	gm.name = "GridManager"
+	# Add dynamic script to handle method calls
+	var gm_script = GDScript.new()
+	gm_script.source_code = "extends Node\nfunc refresh_pathfinding(a, b=null): pass\nfunc get_world_position(v): return Vector3.ZERO"
+	gm_script.reload()
+	gm.set_script(gm_script)
+	add_child(gm)
 
 func run_tests():
 	await test_initialization()
