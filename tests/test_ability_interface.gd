@@ -1,18 +1,18 @@
-extends SceneTree
+extends Node
 
-# godot -s tests/test_ability_interface.gd
+# godot -s tests/test_ability_interface.gd (Or via Runner)
 
-func _init():
+func _ready():
 	print("--- Starting Ability Interface Tests ---")
 	# Standardized Safeguard
-	get_root().add_child(load("res://tests/TestSafeGuard.gd").new())
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	
 	test_base_ability()
 	test_mock_ability_override()
 	test_pmc_logic_check()
 	
 	print("--- All Ability Tests Passed ---")
-	quit()
+	get_tree().quit()
 
 func test_base_ability():
 	print("Test 1: Base Ability Contract")
@@ -76,7 +76,7 @@ func test_pmc_logic_check():
 func assert_check(condition, msg):
 	if not condition:
 		print("FAILED: " + msg)
-		quit(1)
+		get_tree().quit(1)
 
 # --- MOCKS ---
 class MockAbility extends Ability:

@@ -1,6 +1,6 @@
-extends SceneTree
+extends Node
 
-# godot -s tests/test_input_controller.gd
+# godot -s tests/test_input_controller.gd (Or via Runner)
 
 var controller
 var mock_main
@@ -62,24 +62,24 @@ class MockUnit extends Node:
 	func get_item(slot): return null
 	# func has_method(m): return false # Removed override
 
-func _init():
+func _ready():
 	print("🧪 Starting Input Controller UNIT TEST (Isolated)...")
 	# Standardized Safeguard
-	get_root().add_child(load("res://tests/TestSafeGuard.gd").new())
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	setup()
 	run_tests()
-	quit(0)
+	get_tree().quit(0)
 
 func setup():
 	# 1. Instantiate Controller
 	var script = load("res://scripts/controllers/PlayerMissionController.gd")
 	controller = script.new()
 	controller.name = "Controller"
-	get_root().add_child(controller)
+	add_child(controller)
 	
 	# 2. Create Mocks
 	mock_main = MockMain.new()
-	get_root().add_child(mock_main)
+	add_child(mock_main)
 	
 	mock_gm = MockGridManager.new()
 	mock_ui = MockUI.new()
@@ -93,7 +93,7 @@ func setup():
 	# 4. Mock Unit
 	controller.selected_unit = MockUnit.new()
 	controller.selected_unit.name = "MockUnit"
-	get_root().add_child(controller.selected_unit)
+	add_child(controller.selected_unit)
 	controller.selected_unit.add_to_group("Units")
 
 func run_tests():

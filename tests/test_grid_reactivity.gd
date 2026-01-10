@@ -1,14 +1,17 @@
-extends SceneTree
+extends Node
 
-# godot --headless -s tests/test_grid_reactivity.gd
+# Usage: Run via tests/test_grid_reactivity_runner.tscn
 
-func _init():
+var root
+
+func _ready():
 	print("--- Starting Grid Reactivity Tests ---")
+	root = self
 	
 	test_reactivity()
 	
 	print("--- All Grid Tests Passed ---")
-	quit()
+	get_tree().quit()
 
 func test_reactivity():
 	print("Test 1: Signal Connection and Visualization")
@@ -50,4 +53,4 @@ func test_reactivity():
 func assert_check(condition, msg):
 	if not condition:
 		print("FAILED: " + msg)
-		quit(1)
+		get_tree().quit(1)
