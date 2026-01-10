@@ -308,9 +308,7 @@ func _handle_move_click(grid_pos: Vector2):
 		set_input_state(InputState.SELECTING)
 
 func _handle_ability_click(grid_pos: Vector2):
-	var target = _get_unit_at(grid_pos)
-	if not target:
-		target = _find_destructible_at(grid_pos)
+	var target = _resolve_target_at(grid_pos)
 	
 	# Determine ability (Standardize Legacy)
 	var ability = selected_ability
@@ -398,81 +396,49 @@ func _preview_ability(grid_pos: Vector2, gv: Node):
 	else:
 		gv.clear_preview_aoe()
 	
-	# 3. Hit Chance Logic (The Refactored One)
-	var target_obj = _get_unit_at(grid_pos)
-	
-	# Fallback for interactives (Terminals)
-	if not target_obj:
-		# Use existing helper for destructibles (includes Terminals if they extend DestructibleCover)
-		target_obj = _find_destructible_at(grid_pos)
-		
-	var is_valid = false
-	if target_obj and target_obj != selected_unit:
-		# Visibility Check (Fog of War) (Props usually visible but good to check)
-		var is_visible = true
-		if "visible" in target_obj: is_visible = target_obj.visible
-		
-		if is_visible:
-			# Unit Check
-			if target_obj.is_in_group("Units"):
-				if target_obj.get("faction") != selected_unit.get("faction") or target_obj.has_method("take_damage"):
-					is_valid = true
-			# Terminal/Prop Check (For Hack or Sabotage)
-			elif target_obj.is_in_group("Terminals") or target_obj.is_in_group("Destructible"):
-				# Allow if ability is relevant (Duck Typing via get_hit_chance return)
-				# Or generic "Interactable" check.
-				# For now, we trust the ability to yield empty dict if invalid.
-				is_valid = true
-
-	if is_valid:
-		var info = selected_ability.get_hit_chance_breakdown(grid_manager, selected_unit, target_obj)
-		if not info.is_empty() and info.has("hit_chance"):
-			
-			# Parse Breakdown Dictionary to String
-			var breakdown_str = ""
-			if info.has("breakdown") and info["breakdown"] is Dictionary:
-				for key in info["breakdown"]:
-					var val = info["breakdown"][key]
-					var sign_str = "+" if val >= 0 else ""
-					breakdown_str += "%s: %s%d\n" % [key, sign_str, val]
-			elif info.has("breakdown") and info["breakdown"] is String:
-				breakdown_str = info["breakdown"]
-				
-			# Standard Offset 1.8 confirmed
-			if _signal_bus:
-				_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_obj.position + Vector3(0, 1.8, 0))
-	else:
-		if _signal_bus:
-			_signal_bus.on_hide_hit_chance.emit()
+	# 3. Hit Chance Logic (Delegated to unified handler)
+	_preview_attack(grid_pos)
 
 func _preview_attack(grid_pos: Vector2):
 	# Replaces Main._handle_hover logic for hit chance display
-	var target_unit = _get_unit_at(grid_pos)
-	if not target_unit:
-		target_unit = _find_destructible_at(grid_pos)
-	
+	# Replaces Main._handle_hover logic for hit chance display
 	var is_valid_target = false
-	if target_unit and target_unit != selected_unit and ("visible" in target_unit and target_unit.visible):
-		# print("PMC DEBUG: Target found: ", target_unit.name, " Faction: ", target_unit.get("faction"))
-		# 1. Check Faction Match (Enemy)
-		if "faction" in target_unit and "faction" in selected_unit:
-			if target_unit.faction != selected_unit.faction:
-				is_valid_target = true
-		# 2. Check Destructible (Barrel/Prop) - Must have take_damage
-		elif target_unit.has_method("take_damage"):
+	var target_obj = null
+	
+	# 1. Resolve potential target (Unit, Prop, Terminal, or generic position)
+	target_obj = _resolve_target_at(grid_pos)
+	
+	# 2. Identify Ability
+	var ability_to_check = selected_ability
+	if not ability_to_check and current_input_state == InputState.TARGETING:
+		ability_to_check = default_attack
+		
+	# 3. Check Validity based on Ability's own rules
+	if ability_to_check:
+		# Check if tile itself is valid for this ability
+		var valid_tiles = ability_to_check.get_valid_tiles(grid_manager, selected_unit)
+		if grid_pos in valid_tiles:
+			# Ability says "YES, I can target this tile."
 			is_valid_target = true
-
-	if is_valid_target:
-		# Use selected_ability (which should be set to default_attack for TARGETING)
-		# Or fallback if null
-		var ability_to_check = selected_ability
-		if not ability_to_check and current_input_state == InputState.TARGETING:
-			ability_to_check = default_attack
-
-		if ability_to_check:
-			# print("PMC DEBUG: Checking ability hit chance...")
-			var info = ability_to_check.get_hit_chance_breakdown(grid_manager, selected_unit, target_unit)
-			if not info.is_empty() and info.has("hit_chance"):
+			
+			# Edge Case: StandardAttack usually needs an Enemy Unit.
+			# But get_valid_tiles usually returns ONLY enemy locations.
+			# So if it's in valid_tiles, it should be fine.
+			
+	# Fallback legacy check (if ability validation fails or isn't perfect)
+	if not is_valid_target and target_obj and ("visible" in target_obj and target_obj.visible):
+		# Fallback Faction/Interaction Logic
+		if "faction" in target_obj and "faction" in selected_unit:
+			if target_obj.faction != selected_unit.faction:
+				is_valid_target = true
+		elif target_obj.has_method("take_damage"):
+			is_valid_target = true
+			
+	if is_valid_target and ability_to_check:
+		# print("PMC DEBUG: Checking ability hit chance for ", ability_to_check.display_name)
+		var info = ability_to_check.get_hit_chance_breakdown(grid_manager, selected_unit, target_obj)
+		if not info.is_empty() and info.has("hit_chance"):
+			# ... Continue display logic ...
 			
 				# Parse Breakdown Dictionary to String
 				var breakdown_str = ""
@@ -485,7 +451,12 @@ func _preview_attack(grid_pos: Vector2):
 					breakdown_str = info["breakdown"]
 
 				if _signal_bus:
-					_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, target_unit.position + Vector3(0, 1.8, 0))
+					var pos = Vector3.ZERO
+					if target_obj and "position" in target_obj:
+						pos = target_obj.position
+					elif grid_manager:
+						pos = grid_manager.get_world_position(grid_pos)
+					_signal_bus.on_show_hit_chance.emit(info["hit_chance"], breakdown_str, pos + Vector3(0, 1.8, 0))
 	else:
 		if _signal_bus:
 			_signal_bus.on_hide_hit_chance.emit()
@@ -553,33 +524,53 @@ func cancel_action():
 
 # --- Helpers ---
 
-func _get_unit_at(grid_pos: Vector2):
-	# Main has this helper _get_unit_at_grid. Reimplement to avoid call overhead?
-	# Or rely on Main?
-	# Better to implement cleanly here using Scene Tree or GridManager lookup.
-	# GridManager doesn't track units. 
-	# Main.spawned_units is list.
-	# Let's iterate scene tree units for robustness.
-	if not is_inside_tree(): return null
-	var units = get_tree().get_nodes_in_group("Units")
-	for u in units:
-		if is_instance_valid(u) and "grid_pos" in u and u.grid_pos == grid_pos and u.current_hp > 0:
-			return u
-	return null
 
 func _get_grid_visualizer():
 	if main_node and main_node.has_node("GridVisualizer"):
 		return main_node.get_node("GridVisualizer")
 	return null
 
+func _resolve_target_at(grid_pos: Vector2):
+	var target = _get_unit_at(grid_pos)
+	if not target:
+		target = _find_destructible_at(grid_pos)
+	if not target:
+		target = _find_terminal_at(grid_pos)
+	return target
+
+func _find_terminal_at(grid_pos: Vector2):
+	if not main_node:
+		return null
+	var terminals = main_node.get_tree().get_nodes_in_group("Terminals")
+	for t in terminals:
+		if is_instance_valid(t) and "grid_pos" in t and t.grid_pos == grid_pos:
+			return t
+	return null
+
+func _get_unit_at(grid_pos: Vector2):
+	if not main_node or not main_node.get_tree():
+		return null
+	var units = main_node.get_tree().get_nodes_in_group("Units")
+	for u in units:
+		if is_instance_valid(u) and u.grid_pos == grid_pos and u.current_hp > 0:
+			return u
+	return null
+
 func _find_destructible_at(grid_pos: Vector2):
-	var props = main_node.get_tree().get_nodes_in_group("Destructible")
-	for p in props:
-		var prop = p
-		if p is StaticBody3D:
-			prop = p.get_parent()
-		if is_instance_valid(prop) and "grid_pos" in prop and prop.grid_pos == grid_pos:
-			return prop
+	if not main_node:
+		return null
+	var destructibles = main_node.get_tree().get_nodes_in_group("Destructible")
+	for d in destructibles:
+		# Could be Node3D or StaticBody, need to check if it has grid_pos and take_damage
+		# Usually the script is on the parent of the collider, or the collider itself.
+		# Let's check the object itself first.
+		var obj = d
+		if d is StaticBody3D:
+			obj = d.get_parent()
+			
+		if is_instance_valid(obj) and "grid_pos" in obj and obj.grid_pos == grid_pos:
+			if obj.has_method("take_damage"):
+				return obj
 	return null
 
 func _get_interactive_at(grid_pos: Vector2):

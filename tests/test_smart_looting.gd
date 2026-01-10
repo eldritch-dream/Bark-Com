@@ -6,6 +6,7 @@ var LootCrate_Script
 
 func _ready():
 	print("--- TEST: Smart Looting ---")
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	await get_tree().process_frame # Wait for autoloads
 	
 	GridManager_Script = load("res://scripts/managers/GridManager.gd")

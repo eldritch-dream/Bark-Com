@@ -4,6 +4,7 @@ extends Node
 
 func _ready():
 	print("--- TEST START: Loot Ladder Crash ---")
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	await get_tree().process_frame
 	
 	# 1. Setup GridManager

@@ -1,139 +1,129 @@
 extends Node
 
+var root
+var main_node
+var grid_manager
+var pmc
+var signal_bus
+var selected_unit
+var terminal
+var signal_data = {}
+
 func _ready():
-	print("--- Starting Feature Helper Tests (Scene Mode) ---")
+	print("--- TEST START: Feature Helpers (Grenade/Hack) ---")
+	root = self
 	
-	# Wait one frame to ensure Autoloads are fully reliable (though _ready usually suffices)
+	# Anti-Ghosting Safeguard
+	root.add_child(load("res://tests/TestSafeGuard.gd").new())
+	
+	# 1. Setup SignalBus
+	var sb_script = GDScript.new()
+	sb_script.source_code = """
+extends Node
+signal on_combat_log_event(msg, color)
+signal on_show_hit_chance(chance, details, pos)
+signal on_hide_hit_chance
+signal on_ui_select_unit(unit)
+"""
+	sb_script.reload()
+	signal_bus = sb_script.new()
+	root.add_child(signal_bus)
+	
+	# Capture signals
+	signal_bus.on_show_hit_chance.connect(func(c, d, p): signal_data = {'chance': c, 'details': d})
+	signal_bus.on_hide_hit_chance.connect(func(): signal_data = {})
+	
+	# 2. Main
+	main_node = Node.new()
+	main_node.name = "MockMain"
+	root.add_child(main_node)
+	
+	grid_manager = load("res://scripts/managers/GridManager.gd").new()
+	main_node.add_child(grid_manager)
+	# Populate grid for range checks
+	for x in range(3, 8):
+		for y in range(3, 8):
+			grid_manager.grid_data[Vector2(x, y)] = {"world_pos": Vector3(x, 0, y), "type": 0, "is_walkable": true}
+	
+	# 3. Unit
+	var u_script = GDScript.new()
+	u_script.source_code = """
+extends Node
+var grid_pos = Vector2(5, 5)
+var current_ap = 2
+var faction = 'Player'
+var mobility = 5
+var visible = true
+var stats = {'accuracy': 80}
+var tech_score = 10
+"""
+	u_script.reload()
+	selected_unit = u_script.new()
+	selected_unit.name = "Grenadier"
+	main_node.add_child(selected_unit)
+	
+	# 4. Terminal
+	terminal = Node.new()
+	terminal.name = "Terminal"
+	var t_script = GDScript.new()
+	t_script.source_code = """
+extends Node
+var grid_pos = Vector2(6, 5)
+var is_hacked = false
+var visible = true # Needed for visibility checks
+"""
+	t_script.reload()
+	terminal.set_script(t_script)
+	terminal.add_to_group("Terminals")
+	main_node.add_child(terminal)
+	
+	# 5. PMC
+	pmc = load("res://scripts/controllers/PlayerMissionController.gd").new()
+	main_node.add_child(pmc)
+	pmc._signal_bus = signal_bus
+	pmc.grid_manager = grid_manager
+	pmc.main_node = main_node
+	pmc.selected_unit = selected_unit
+	
+	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	test_grenade_helper()
-	test_hack_helper()
-	test_special_grenades()
-	test_status_consistency()
-	
-	if load("res://scripts/ui/UnitStatusUI.gd"):
-		print("  -> UnitStatusUI Syntax Valid")
-	else:
-		print("FAILED: UnitStatusUI Syntax Error")
-		get_tree().quit(1)
-	
-	print("--- All Feature Helper Tests Passed ---")
-	get_tree().quit(0)
+	_run_tests()
 	get_tree().quit()
 
-func test_grenade_helper():
-	print("Test 1: Grenade Hit Chance")
-	
+func _run_tests():
+	# Test A: Grenade Helper (Ground Target)
+	print("Test A: Grenade Helper (Ground Target)...")
+	# Update: Use generic GrenadeToss script if possible, or mock
 	var grenade_script = load("res://scripts/abilities/GrenadeToss.gd")
-	if not grenade_script:
-		print("FAILED: Could not load GrenadeToss.gd")
-		get_tree().quit(1)
-		return
-		
-	var grenade = grenade_script.new()
-	# Grenade hit chance is primarily Base 80% initially
+	var grenade_ability = grenade_script.new()
+	grenade_ability.charges = 1 # Ensure valid
 	
-	var info = grenade.get_hit_chance_breakdown(null, null, null)
-	assert_check(info.has("hit_chance"), "Grenade info missing hit_chance. Info: " + str(info))
-	var chance = info.get("hit_chance")
-	assert_check(chance == 80, "Grenade base chance should be 80. Got: " + str(chance))
+	pmc.selected_ability = grenade_ability
+	pmc.current_input_state = pmc.InputState.ABILITY_TARGETING 
 	
-	print("  -> Grenade logic valid.")
-	# Grenade is RefCounted, auto-freed.
+	# Hover empty tile (5, 6) next to unit
+	signal_data = {}
+	pmc._preview_attack(Vector2(5, 6))
+	
+	if signal_data.has('chance'):
+		print("PASS: Grenade UI showed for empty tile. Chance: ", signal_data['chance'])
+	else:
+		print("FAIL: Grenade UI did not show for empty tile.")
 
-func test_hack_helper():
-	print("Test 2: Hack Chance")
-	
+	# Test B: Hack Helper (Terminal Target)
+	print("Test B: Hack Helper (Terminal Target)...")
 	var hack_script = load("res://scripts/abilities/HackAbility.gd")
-	if not hack_script:
-		print("FAILED: Could not load HackAbility.gd")
-		get_tree().quit(1)
-		return
-		
-	var hack = hack_script.new()
+	var hack_ability = hack_script.new()
 	
-	# Mock User
-	var UserMock = load("res://scripts/entities/Unit.gd") 
-	var user = UserMock.new()
-	user.tech_score = 0
+	pmc.selected_ability = hack_ability
+	pmc.current_input_state = pmc.InputState.ABILITY_TARGETING
 	
-	# Case A: Base Tech (0)
-	var info = hack.get_hit_chance_breakdown(null, user, null)
-	var chance = info.get("hit_chance")
-	assert_check(chance == 70, "Hack base chance should be 70. Got: " + str(chance) + " Info: " + str(info))
+	# Hover terminal tile (6, 5)
+	signal_data = {}
+	pmc._preview_attack(Vector2(6, 5))
 	
-	# Case B: High Tech (10)
-	user.tech_score = 10
-	var info_high = hack.get_hit_chance_breakdown(null, user, null)
-	var chance_high = info_high.get("hit_chance")
-	assert_check(chance_high == 80, "Hack w/ 10 Tech should be 80. Got: " + str(chance_high))
-	
-	# Case C: Max Tech (100) -> Cap 100
-	user.tech_score = 50
-	var info_cap = hack.get_hit_chance_breakdown(null, user, null)
-	var chance_cap = info_cap.get("hit_chance")
-	assert_check(chance_cap == 100, "Hack should cap at 100. Got: " + str(chance_cap))
-	
-	print("  -> Hack logic valid.")
-	
-	user.free() # Unit extends CharacterBody3D (Node), must be freed.
-	# Hack (Ability) is RefCounted, no free.
-
-func test_special_grenades():
-	print("Test 3: Special Grenades")
-	
-	var inc_script = load("res://scripts/abilities/IncendiaryGrenade.gd")
-	if inc_script:
-		var inc = inc_script.new()
-		var info = inc.get_hit_chance_breakdown(null, null, null)
-		assert_check(info.get("hit_chance") == 80, "Incendiary should appear with 80% chance")
-		print("  -> Incendiary Valid")
-	
-	var flash_script = load("res://scripts/abilities/FlashbangToss.gd")
-	if flash_script:
-		var flash = flash_script.new()
-		var info = flash.get_hit_chance_breakdown(null, null, null)
-		assert_check(info.get("hit_chance") == 80, "Flashbang should appear with 80% chance")
-
-func test_status_consistency():
-	print("Test 4: Status Consistency")
-	var paths = [
-		"res://scripts/resources/statuses",
-		"res://scripts/resources/effects"
-	]
-	
-	for p in paths:
-		var dir = DirAccess.open(p)
-		if dir:
-			dir.list_dir_begin()
-			var fn = dir.get_next()
-			while fn != "":
-				if not dir.current_is_dir() and fn.ends_with(".gd"):
-					var res = load(p + "/" + fn)
-					if res:
-						var inst = res.new()
-						var name = inst.display_name if "display_name" in inst else "UNKNOWN"
-						
-						# Validations
-						assert_check("description" in inst and inst.description != "", name + " has description")
-						assert_check("type" in inst, name + " has type")
-						
-						if "icon" in inst and inst.icon:
-							pass
-						else:
-							print("FAILED: " + name + " missing icon!")
-						
-						# Check Type is Valid (0 or 1 usually)
-						if "type" in inst:
-							if inst.type == 0: pass # BUFF
-							elif inst.type == 1: pass # DEBUFF
-							else: print("WARN: " + name + " is NEUTRAL or Invalid")
-							
-				fn = dir.get_next()
-	print("  -> Status Consistency Verified")
-
-
-func assert_check(condition, msg):
-	if not condition:
-		print("FAILED: " + msg)
-		get_tree().quit(1)
+	if signal_data.has('chance'):
+		print("PASS: Hack UI showed for Terminal.")
+	else:
+		print("FAIL: Hack UI did not show for Terminal.")

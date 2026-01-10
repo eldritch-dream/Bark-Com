@@ -2,6 +2,7 @@ extends Node
 
 func _ready():
 	print("--- TEST: Status Effects Logic ---")
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	await get_tree().process_frame # Wait for autoloads stability
 	
 	# Load Scripts

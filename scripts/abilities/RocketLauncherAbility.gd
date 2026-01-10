@@ -13,6 +13,12 @@ func _init():
 func get_valid_tiles(grid_manager, user) -> Array[Vector2]:
 	return grid_manager.get_tiles_in_radius(user.grid_pos, float(ability_range))
 	
+func get_hit_chance_breakdown(_grid_manager, _user, _target) -> Dictionary:
+	return {
+		"hit_chance": 100,
+		"breakdown": {"Precision Guided": 100}
+	}
+	
 	
 func execute(user, _target_unit, target_pos: Vector2, grid_manager) -> String:
 	if charges <= 0:

@@ -4,6 +4,7 @@ extends Node
 
 func _ready():
 	print("--- STARTING MISSION REWARDS TEST ---")
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	await get_tree().process_frame
 	
 	var GM_Script = load("res://scripts/core/GameManager.gd")

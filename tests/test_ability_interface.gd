@@ -4,6 +4,8 @@ extends SceneTree
 
 func _init():
 	print("--- Starting Ability Interface Tests ---")
+	# Standardized Safeguard
+	get_root().add_child(load("res://tests/TestSafeGuard.gd").new())
 	
 	test_base_ability()
 	test_mock_ability_override()

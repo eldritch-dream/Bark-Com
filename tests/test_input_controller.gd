@@ -64,6 +64,8 @@ class MockUnit extends Node:
 
 func _init():
 	print("🧪 Starting Input Controller UNIT TEST (Isolated)...")
+	# Standardized Safeguard
+	get_root().add_child(load("res://tests/TestSafeGuard.gd").new())
 	setup()
 	run_tests()
 	quit(0)

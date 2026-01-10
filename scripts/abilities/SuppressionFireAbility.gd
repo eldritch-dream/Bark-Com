@@ -53,3 +53,9 @@ func get_valid_tiles(grid_manager: GridManager, user) -> Array[Vector2]:
 				if center.distance_to(tile) <= r:
 					valid.append(tile)
 	return valid
+
+func get_hit_chance_breakdown(_grid_manager, _user, _target) -> Dictionary:
+	return {
+		"hit_chance": 100,
+		"breakdown": {"Area Effect": 100}
+	}

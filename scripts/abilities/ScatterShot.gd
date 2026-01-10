@@ -13,12 +13,19 @@ func _init():
 # Push Logic: Move unit away from center of blast
 
 
+
 func get_valid_tiles(grid_manager: GridManager, user) -> Array[Vector2]:
 	var valid: Array[Vector2] = []
 	for tile in grid_manager.grid_data.keys():
 		if tile.distance_to(user.grid_pos) <= ability_range:
 			valid.append(tile)
 	return valid
+
+func get_hit_chance_breakdown(_grid_manager, _user, _target) -> Dictionary:
+	return {
+		"hit_chance": 100,
+		"breakdown": {"Area Effect": 100}
+	}
 
 
 func execute(user, _target_unit, target_tile: Vector2, grid_manager: GridManager) -> String:

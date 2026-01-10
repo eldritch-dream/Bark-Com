@@ -14,6 +14,9 @@ func _ready():
 	add_child(main_scene)
 	print("✅ Smoke Test: Main scene instantiated successfully.")
 	
+	# Anti-Ghosting Safeguard
+	add_child(load("res://tests/TestSafeGuard.gd").new())
+	
 	# Wait for a few seconds to ensure no immediate crash
 	await get_tree().create_timer(5.0).timeout
 	

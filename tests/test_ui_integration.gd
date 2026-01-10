@@ -25,6 +25,7 @@ class MockUnit:
 
 func _ready():
 	print("--- STARTING UI INTEGRATION TESTS ---")
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	await get_tree().process_frame
 	
 	GameUI_Script = load("res://scripts/ui/GameUI.gd")

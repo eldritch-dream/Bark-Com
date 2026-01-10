@@ -32,6 +32,7 @@ class MockWeapon:
 
 func _ready():
 	print("--- STARTING COMBAT RESOLVER TESTS ---")
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	await get_tree().process_frame
 	
 	CombatResolver = load("res://scripts/managers/CombatResolver.gd")

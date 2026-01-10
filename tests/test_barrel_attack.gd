@@ -12,6 +12,9 @@ func _ready():
 	print("--- TEST START: Barrel Attack Crash Fix ---")
 	root = self
 	
+	# Anti-Ghosting Safeguard
+	root.add_child(load("res://tests/TestSafeGuard.gd").new())
+	
 	# 1. Setup SignalBus Mock
 	var sb_script = GDScript.new()
 	sb_script.source_code = """

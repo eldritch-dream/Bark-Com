@@ -6,6 +6,7 @@ var MainScript
 
 func _ready():
 	print("--- STARTING STABILIZATION TESTS ---")
+	add_child(load("res://tests/TestSafeGuard.gd").new())
 	await get_tree().process_frame
 	
 	MainScript = load("res://scripts/core/Main.gd")
