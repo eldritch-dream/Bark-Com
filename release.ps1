@@ -113,9 +113,14 @@ if ($DryRun) {
     } else {
         git tag -a $TagName -m "Release $TagName"
         Write-Host "   [SUCCESS] Tag $TagName created." -ForegroundColor Green
-        # Optional: Push tag
-        # git push origin $TagName
-        # Write-Host "   [INFO] Don't forget to push tags: git push --tags" -ForegroundColor Gray
+        
+        # Push tag
+        git push origin $TagName
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "   [SUCCESS] Tag $TagName pushed to remote." -ForegroundColor Green
+        } else {
+            Write-Host "   [WARN] Failed to push tag. Run 'git push origin $TagName' manually." -ForegroundColor Yellow
+        }
     }
 
     Write-Host "`n>>> Release v$Version Deployed Successfully!" -ForegroundColor Green
