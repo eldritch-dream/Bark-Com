@@ -99,6 +99,8 @@ func _start_movement():
 			var items = gm.get_items_at(unit.grid_pos)
 			# Duplicate list because interact might remove them
 			for item in items.duplicate():
+				if not is_instance_valid(item):
+					continue
 				print(unit.name, " auto-interacting with ", item.name)
 				
 				# Delegate to ObjectiveManager if possible (Handles Mission Logic & Cleanup)

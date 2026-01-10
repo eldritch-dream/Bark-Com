@@ -51,7 +51,19 @@ func remove_item(coord: Vector2, item_node: Node):
 
 func get_items_at(coord: Vector2) -> Array:
 	if grid_data.has(coord) and grid_data[coord].has("items"):
-		return grid_data[coord]["items"]
+		# Prune invalid items on access
+		var valid_items = []
+		var dirty = false
+		for item in grid_data[coord]["items"]:
+			if is_instance_valid(item) and not item.is_queued_for_deletion():
+				valid_items.append(item)
+			else:
+				dirty = true
+		
+		if dirty:
+			grid_data[coord]["items"] = valid_items
+			
+		return valid_items
 	return []
 
 
@@ -363,8 +375,11 @@ func get_reachable_tiles(start_pos: Vector2, max_move: int) -> Array[Vector2]:
 				if not visited.has(n_pos) or new_cost < visited[n_pos]:
 					visited[n_pos] = new_cost
 					queue.append({"pos": n_pos, "cost": new_cost})
-					if not reachable.has(n_pos):
-						reachable.append(n_pos)
+					
+					# Only add to output if it's a valid STOPPING point (e.g. not a Ladder)
+					if is_valid_destination(n_pos):
+						if not reachable.has(n_pos):
+							reachable.append(n_pos)
 						
 	return reachable
 

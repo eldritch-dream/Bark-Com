@@ -183,7 +183,7 @@ func handle_interaction(interactor, target):
 		if target.is_in_group("RescueTargets") or target == rescue_target:
 			if not rescue_secured:
 				rescue_secured = true
-				rescue_win_turn = current_turn + 1
+				rescue_win_turn = current_turn + 3
 				print(interactor.name, " secured the human! Hold until Turn ", rescue_win_turn)
 				SignalBus.on_request_floating_text.emit(target.position + Vector3(0,2,0), "SECURED! DEFEND!", Color.GREEN)
 				_emit_update()

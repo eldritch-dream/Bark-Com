@@ -37,6 +37,15 @@ func _unhandled_input(event):
 	if not GameManager:
 		return
 
+	# Global Shortcuts (Always Active)
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F:
+			GameManager.toggle_fullscreen()
+			# Don't return, in case other systems want this key? 
+			# But usually F is unique. Let's consume it to be safe.
+			get_viewport().set_input_as_handled()
+			return
+
 	# If in MENU or PAUSED, ignore world inputs
 	# BASE might have some inputs? For now assume MISSION is the main consumer of 3D clicks.
 	# Base uses UI mainly, but maybe some 3D interaction later.

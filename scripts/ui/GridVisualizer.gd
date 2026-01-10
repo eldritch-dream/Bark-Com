@@ -332,7 +332,7 @@ func draw_ai_intent(from: Vector3, to: Vector3, color: Color):
 func preview_path(points: Array, color: Color = Color.CYAN):
 	clear_preview_path()
 	
-	if points.is_empty():
+	if points.size() < 2:
 		return
 
 	var lines_node = MeshInstance3D.new()

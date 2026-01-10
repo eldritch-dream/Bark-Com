@@ -262,6 +262,13 @@ func _handle_move_click(grid_pos: Vector2):
 	print("PMC: _handle_move_click. Unit: ", selected_unit)
 	if not selected_unit: return
 
+	# 0. Friendly Unit Switching (Overriding Move)
+	var clicked_unit = _get_unit_at(grid_pos)
+	if clicked_unit and clicked_unit.get("faction") == "Player" and clicked_unit != selected_unit:
+		print("PMC: Clicked Friendly Unit in Move Mode. Switching Selection to ", clicked_unit.name)
+		select_unit(clicked_unit)
+		return
+
 	# 1. Check Interaction First
 	var interactive = _get_interactive_at(grid_pos)
 	if interactive:
@@ -302,6 +309,8 @@ func _handle_move_click(grid_pos: Vector2):
 
 func _handle_ability_click(grid_pos: Vector2):
 	var target = _get_unit_at(grid_pos)
+	if not target:
+		target = _find_destructible_at(grid_pos)
 	
 	# Determine ability (Standardize Legacy)
 	var ability = selected_ability
@@ -439,9 +448,12 @@ func _preview_ability(grid_pos: Vector2, gv: Node):
 func _preview_attack(grid_pos: Vector2):
 	# Replaces Main._handle_hover logic for hit chance display
 	var target_unit = _get_unit_at(grid_pos)
+	if not target_unit:
+		target_unit = _find_destructible_at(grid_pos)
 	
 	var is_valid_target = false
 	if target_unit and target_unit != selected_unit and ("visible" in target_unit and target_unit.visible):
+		# print("PMC DEBUG: Target found: ", target_unit.name, " Faction: ", target_unit.get("faction"))
 		# 1. Check Faction Match (Enemy)
 		if "faction" in target_unit and "faction" in selected_unit:
 			if target_unit.faction != selected_unit.faction:
@@ -458,6 +470,7 @@ func _preview_attack(grid_pos: Vector2):
 			ability_to_check = default_attack
 
 		if ability_to_check:
+			# print("PMC DEBUG: Checking ability hit chance...")
 			var info = ability_to_check.get_hit_chance_breakdown(grid_manager, selected_unit, target_unit)
 			if not info.is_empty() and info.has("hit_chance"):
 			

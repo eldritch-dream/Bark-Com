@@ -847,6 +847,20 @@ func calculate_max_hp(unit_data: Dictionary) -> int:
 	return base + bonus
 
 
+
+func toggle_fullscreen():
+	var mode = DisplayServer.window_get_mode()
+	var new_mode = DisplayServer.WINDOW_MODE_FULLSCREEN
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+		new_mode = DisplayServer.WINDOW_MODE_WINDOWED
+	
+	DisplayServer.window_set_mode(new_mode)
+	
+	# Update persistent settings
+	settings["fullscreen"] = (new_mode == DisplayServer.WINDOW_MODE_FULLSCREEN or new_mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+	save_game() # Save preferences immediately? Or on close? Save now is safe.
+
+
 func update_settings(music: float, sfx: float):
 	settings["music_vol"] = music
 	settings["sfx_vol"] = sfx
