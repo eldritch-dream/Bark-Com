@@ -1,0 +1,22 @@
+﻿# Patch Notes v0.4.4
+
+- Fix Loot box crash Fix Barrel Crash Fix single point vertex spam
+- Fix ladder crate crash
+- Rescue missions actually rescue new units!!
+- Fix Medkit Fix options menu fullscreen
+- Fix legacy standalone tests
+- Fix combat resolver test
+- Fix ci runner
+- Fix status effects and Full Screen checkbox
+- Get tests passing in CI pipeline
+- fix github action runner
+- Automated tests on push
+- Refactor grenades to use ammo and have cds properly (applies to any charged item with cds in future) Make sure go for ankles (and other abilityies) uses ap and refreshes ui Next dog button/tab to switch units
+- New cursors on mouse hover for enemies and loot crates
+- Enable "smart looting" of crates and treat bags
+- Hit chance helper for grenades Hack chance helper New icons for all status effects New game glossary during deployment
+- Grid manager delegation
+- Small ability class refactor/cleanup
+- Refactor some ui signals and make sure hit chance helper is not lingering
+- Fix a couple of attacks to use combat resolver and make sure random values for hit are in the right range
+- Cleanup: Fix Health Persistence, Hit Chance UI, Attack Range, and Remove Build Artifacts

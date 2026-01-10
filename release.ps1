@@ -29,23 +29,42 @@ if ($Tags) {
 }
 
 $PatchNotes = "# Patch Notes v$Version`n`n" + ($GitLog -join "`n")
-$PatchNotesFile = "release_notes.md"
+$PatchNotesFile = "release_$Version.md"
 $PatchNotes | Out-File $PatchNotesFile -Encoding UTF8
 Write-Host "   Notes saved to $PatchNotesFile" -ForegroundColor Green
 
 # -------------------------------------------------------------------------
-# 2. Smoke Test
+# 2. Test Suite
 # -------------------------------------------------------------------------
-Write-Host "`n[2/4] Running Smoke Test..." -ForegroundColor Yellow
-# Run the smoke test script scene headlessly
-$SmokeCmd = Start-Process -FilePath $GodotPath -ArgumentList "--headless `"$SmokeTestScene`"" -Wait -PassThru -NoNewWindow
+Write-Host "`n[2/4] Running Test Suite..." -ForegroundColor Yellow
 
-if ($SmokeCmd.ExitCode -eq 0) {
-    Write-Host "   [PASS] Smoke Test Passed!" -ForegroundColor Green
-} else {
-    Write-Host "   [FAIL] Smoke Test FAILED (Exit Code $($SmokeCmd.ExitCode)). Aborting Release." -ForegroundColor Red
-    exit 1
+# Find all test runner scenes automatically
+$TestScenes = Get-ChildItem -Path "tests" -Filter "*.tscn" -Recurse
+
+if ($TestScenes.Count -eq 0) {
+    Write-Host "   [WARN] No tests found in tests/ folder." -ForegroundColor Yellow
 }
+
+foreach ($Scene in $TestScenes) {
+    # RelPath for display and argument (e.g. tests/test_combat_runner.tscn)
+    # Get-ChildItem returns full objects, we need relative path for Godot sometimes, 
+    # but absolute path works too. Let's use relative for cleanliness.
+    $RelPath = "tests/" + $Scene.Name
+    
+    Write-Host "   Executing $RelPath..." -NoNewline
+    
+    # Run the test scene headlessly
+    $TestCmd = Start-Process -FilePath $GodotPath -ArgumentList "--headless --path . $RelPath" -Wait -PassThru -NoNewWindow
+    
+    if ($TestCmd.ExitCode -eq 0) {
+        Write-Host " [PASS]" -ForegroundColor Green
+    } else {
+        Write-Host " [FAIL]" -ForegroundColor Red
+        Write-Host "   !!! Pipeline FAILED at $RelPath (Exit Code $($TestCmd.ExitCode)). Aborting Release." -ForegroundColor Red
+        exit 1
+    }
+}
+Write-Host "   All Found Tests Passed!" -ForegroundColor Green
 
 # -------------------------------------------------------------------------
 # 3. Build
@@ -58,7 +77,7 @@ Write-Host "`n[3/4] Building Game Artifacts..." -ForegroundColor Yellow
 # 4. Deploy (Itch.io)
 # -------------------------------------------------------------------------
 if ($DryRun) {
-    Write-Host "`n[DRY RUN] Skipping Upload." -ForegroundColor Magenta
+    Write-Host "`n[DRY RUN] Skipping Upload and Tagging." -ForegroundColor Magenta
     Write-Host "   Command would be: butler push builds/dist/BarkCom_Web_v$Version.zip ${ProjectID}:web --userversion $Version"
 } else {
     Write-Host "`n[4/4] Deploying to Itch.io ($ProjectID)..." -ForegroundColor Yellow
@@ -81,5 +100,23 @@ if ($DryRun) {
         Write-Host "   [ERROR] Windows zip not found: $WinZip" -ForegroundColor Red
     }
     
+    # -------------------------------------------------------------------------
+    # 5. Git Tag
+    # -------------------------------------------------------------------------
+    Write-Host "`n[5/5] Creating Git Tag v$Version..." -ForegroundColor Yellow
+    
+    $TagName = "v$Version"
+    $TagExists = git tag -l $TagName
+    
+    if ($TagExists) {
+        Write-Host "   [INFO] Tag $TagName already exists. Skipping." -ForegroundColor Gray
+    } else {
+        git tag -a $TagName -m "Release $TagName"
+        Write-Host "   [SUCCESS] Tag $TagName created." -ForegroundColor Green
+        # Optional: Push tag
+        # git push origin $TagName
+        # Write-Host "   [INFO] Don't forget to push tags: git push --tags" -ForegroundColor Gray
+    }
+
     Write-Host "`n>>> Release v$Version Deployed Successfully!" -ForegroundColor Green
 }
