@@ -234,6 +234,21 @@ func _generate_daily_batch():
 			m.description += "\nEliminate all hostiles."
 			
 		available_missions.append(m)
+		
+		# RESCUE REWARD GENERATION
+		if m.objective_type == 1: # Rescue
+			var r_name = _get_random_name()
+			var r_classes = get_available_classes()
+			var r_class = r_classes.pick_random()
+			var r_level = m.difficulty_rating # MATCH DIFFICULTY
+			
+			m.reward_recruit_data = {
+				"name": r_name,
+				"class": r_class,
+				"level": r_level
+			}
+			# Reduce Kibble reward to balance (optional, user didn't ask but good design)
+			m.reward_kibble = int(m.reward_kibble * 0.5)
 
 
 
@@ -277,6 +292,10 @@ func _add_recruit(
 	}
 	roster.append(new_unit)
 	SignalBus.on_unit_recruited.emit(new_unit)
+
+
+func _add_recruit_from_data(data: Dictionary):
+	_add_recruit(data["name"], data["level"], data["class"])
 
 
 func add_kibble(amount: int):
@@ -386,6 +405,12 @@ func complete_mission(
 		kibble += reward_amount
 		print("GameManager: Mission Succeeded! Added ", reward_amount, " Kibble. Total: ", kibble)
 
+	# RECRUIT REWARD
+	if _is_win and active_mission and active_mission.reward_recruit_data.size() > 0:
+		print("GameManager: Mission Reward -> New Recruit: ", active_mission.reward_recruit_data["name"])
+		_add_recruit_from_data(active_mission.reward_recruit_data)
+		# Should we notify UI? SignalBus.on_unit_recruited is emitted by _add_recruit which UI listens to.
+
 	# Nemesis Processing
 	_process_nemesis_candidates(surviving_enemies)
 
@@ -451,6 +476,11 @@ func complete_mission(
 	if tracked_squad.is_empty():
 		print("GameManager: deploying_squad empty. Fallback to Ready roster for purge check.")
 		tracked_squad = get_ready_corgis()
+
+	# SAFETY: If Mission Won but Survivors Empty, Main.gd likely glitched. Abort purge to prevent wipe.
+	if _is_win and surviving_corgis_data.is_empty():
+		print("GameManager: CRITICAL WARNING - Mission Won but No Survivors reported. Aborting Roster Purge to prevent data loss.")
+		tracked_squad = [] # Clear tracked so the loop below skips everything (was_deployed=false)
 
 	for i in range(roster.size() - 1, -1, -1):
 		var member = roster[i]
@@ -569,8 +599,8 @@ func save_game():
 	# Serialize Roster
 	for member in roster:
 		var mem_copy = member.duplicate()
-		if mem_copy["primary_weapon"] != null:
-			mem_copy["weapon_id"] = mem_copy["primary_weapon"].display_name
+		if member.get("primary_weapon") != null:
+			mem_copy["weapon_id"] = member["primary_weapon"].display_name
 			mem_copy.erase("primary_weapon")
 		# Serialize Unit Inventory (Consumables)
 		mem_copy["inventory"] = []

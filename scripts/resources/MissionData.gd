@@ -9,3 +9,4 @@ class_name MissionData
 @export var enemy_types: Array[Resource] = []  # List of EnemyData resources
 @export var objective_type: int = 0  # 0=Deathmatch, 1=Rescue, 2=Retrieve, 3=Hacker
 @export var objective_target_count: int = 0
+@export var reward_recruit_data: Dictionary = {} # Stores {name, class, level} for rescue rewards

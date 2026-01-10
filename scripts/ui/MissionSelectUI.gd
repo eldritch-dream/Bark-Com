@@ -235,10 +235,17 @@ func _on_scan_pressed():
 		_create_base_defense_mission()
 		return
 
-	# Generate 3 Missions
-	for i in range(3):
-		var mission = _generate_random_mission()
-		_create_mission_card(mission)
+	# Fetch from GameManager
+	if game_manager:
+		if game_manager.available_missions.is_empty():
+			print("MissionSelectUI: No missions available. Requesting generation...")
+			game_manager._generate_daily_batch()
+		
+		print("MissionSelectUI: Displaying ", game_manager.available_missions.size(), " missions.")
+		for mission in game_manager.available_missions:
+			_create_mission_card(mission)
+	else:
+		print("MissionSelectUI: GameManager not connected!")
 
 
 func _create_base_defense_mission():
@@ -257,25 +264,7 @@ func _create_base_defense_mission():
 	mission_container.add_child(card)
 
 
-func _generate_random_mission() -> MissionData:
-	var m = MissionData.new()
-	var locations = ["Park", "Kitchen", "Backyard", "Basement"]
-	var types = ["Patrol", "Assault", "Defense"]
 
-	m.mission_name = locations.pick_random() + " " + types.pick_random()
-	m.difficulty_rating = (randi() % 3) + 1  # 1-3
-	m.reward_kibble = m.difficulty_rating * 25 + (randi() % 20)
-
-	# Set description based on flavor
-	match m.difficulty_rating:
-		1:
-			m.description = "Low activity detected. Standard bark protocol."
-		2:
-			m.description = "Suspicious movement. Bring treats."
-		3:
-			m.description = "Full scale invasion! Maximum borkdrive!"
-
-	return m
 
 
 func _create_mission_card(mission: MissionData):
@@ -290,14 +279,20 @@ func _create_mission_card(mission: MissionData):
 		color_code = Color.RED
 
 	card.modulate = color_code
+	
+	var reward_text = "Reward: " + str(mission.reward_kibble)
+	if mission.reward_recruit_data.size() > 0:
+		var d = mission.reward_recruit_data
+		reward_text = "RESCUE: " + d["name"] + "\n(" + d["class"] + " Lvl " + str(d["level"]) + ")"
+		card.modulate = Color.CYAN # Distinct color for Rescue
+		
 	card.text = (
 		mission.mission_name
 		+ "\n\n"
 		+ "Diff: "
 		+ str(mission.difficulty_rating)
 		+ "\n"
-		+ "Reward: "
-		+ str(mission.reward_kibble)
+		+ reward_text
 	)
 
 	card.pressed.connect(func(): _on_mission_selected(mission))

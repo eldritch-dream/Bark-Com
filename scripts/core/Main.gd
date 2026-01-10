@@ -403,6 +403,13 @@ func _on_mission_completed():
 
 			survivors_data.append(data)
 	
+	# 2. Add Unspawned Survivors (Left in Shuttle)
+	if not unspawned_survivors.is_empty():
+		print("Main: Adding ", unspawned_survivors.size(), " unspawned units to survivors list.")
+		for u_data in unspawned_survivors:
+			# Ensure we pass the data format GameManager expects (it accepts the roster dict format)
+			survivors_data.append(u_data)
+
 	print("Main: Syncing Roster. Survivors: ", survivors_data.size())
 	
 	# 3. Call GameManager
@@ -425,6 +432,7 @@ func _on_mission_completed():
 	else:
 		_end_mission(true)
 var _mission_end_processed = false
+var unspawned_survivors: Array = [] # Tracks units that exceeded spawn limit or failed to find spot
 
 func _on_mission_ended_handler(victory: bool, _rewards: int = 0):
 	print("DEBUG: _on_mission_ended_handler called! Victory: ", victory)
@@ -628,7 +636,9 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 
 	for data in ready_units:
 		if spawn_offset >= 4:
-			break  # Max 4 limit
+			print("Main: Spawn limit (4) reached. Unit ", data["name"], " stays in shuttle.")
+			unspawned_survivors.append(data)
+			continue  # Max 4 limit
 		
 		deployed_names.append(data["name"])
 
@@ -659,8 +669,10 @@ func spawn_test_scenario(grid_manager: GridManager, mission: Resource = null):  
 				found_spot = true
 				break
 
+
 		if not found_spot:
 			print("CRITICAL: No spawn spot found for ", data["name"])
+			unspawned_survivors.append(data)
 			continue  # Skip spawn
 
 		unit.initialize(target_tile)

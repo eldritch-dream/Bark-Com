@@ -277,7 +277,12 @@ func _create_mission_card(mission: MissionData):
 	if mission.objective_target_count > 0:
 		btn.text += "\nTargets: " + str(mission.objective_target_count)
 	
-	btn.text += "\nReward: " + str(mission.reward_kibble) + " Kibble"
+	if mission.reward_recruit_data and not mission.reward_recruit_data.is_empty():
+		var d = mission.reward_recruit_data
+		btn.text += "\nRECRUIT: " + d["name"] + "\n(" + d["class"] + " Lvl " + str(d["level"]) + ")"
+		btn.modulate = Color.CYAN
+	else:
+		btn.text += "\nReward: " + str(mission.reward_kibble) + " Kibble"
 
 	# Color code
 	if mission.difficulty_rating == 2:
