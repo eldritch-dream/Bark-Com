@@ -520,6 +520,11 @@ func complete_mission(
 		iron_dog_mode
 		and is_instance_valid(surviving_corgis_data)
 		and surviving_corgis_data.is_empty()
+		# And no one left at base? 
+		# If we have bench units, it's not a wipe unless we define "Mission Fail = Game Over" 
+		# usually Iron Dog = Permadeath, but Game Over only if 0 units.
+		# For this specific check, let's assume Squad Wipe logic intends to END the run (based on print statement).
+		and roster.size() <= 0 # Double check roster is empty (purged above)
 	):
 		# Note: surviving_corgis_data contains valid living units.
 		# If empty, everyone died.
@@ -527,6 +532,8 @@ func complete_mission(
 		print("*** TOTAL SQUAD WIPE DETECTED ***")
 		print("*** DELETING SAVE FILE... ***")
 		delete_save()
+		return # STOP HERE! Do not auto-save.
+	
 	# Auto-Save Progress
 	_process_base_recovery(deploying_squad)
 	save_game() # MOVED HERE
