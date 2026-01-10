@@ -227,7 +227,7 @@ func run_tests():
 	if MockProp.reload() != OK: print("Failed to load MockProp")
 	var interact_obj = MockProp.new()
 	interact_obj.name = "Door"
-	get_root().add_child(interact_obj)
+	get_tree().root.add_child(interact_obj)
 	interact_obj.add_to_group("Interactive")
 	
 	# ...

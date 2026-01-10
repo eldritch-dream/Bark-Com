@@ -31,11 +31,12 @@ func setup_env():
 		get_tree().quit(1)
 		return
 		
-	SignalBus.on_show_hit_chance.connect(func(c, d, p): 
+	var sb = get_node("/root/SignalBus")
+	sb.on_show_hit_chance.connect(func(c, d, p): 
 		signal_data = {'chance': c}
 		# print("Debug: Hit Chance Signal: ", c)
 	)
-	SignalBus.on_hide_hit_chance.connect(func(): 
+	sb.on_hide_hit_chance.connect(func(): 
 		signal_data = {}
 		# print("Debug: Hide Signal")
 	)
@@ -55,35 +56,30 @@ func setup_env():
 	# Real GridManager.is_valid_destination checks grid_data.
 	# We populated it, so it should be true.
 	
+
 	# 3. Unit
-	# Minimal Mock Unit
-	var u_script = GDScript.new()
-	u_script.source_code = """
-extends Node
-var grid_pos = Vector2(5,5)
-var faction = 'Player'
-var mobility = 10
-var current_ap = 10
-var stats = {'accuracy': 100}
-var modifiers = {}
-func has_method(m): return true
-func has_perk(p): return false
-func get_tree(): return get_parent().get_tree()
-func spend_ap(cost): return true
-"""
-	u_script.reload()
-	selected_unit = u_script.new()
+	selected_unit = MockUnitGround.new()
 	selected_unit.name = "TestUnit"
 	add_child(selected_unit)
 	
 	# 4. PMC
 	pmc = load("res://scripts/controllers/PlayerMissionController.gd").new()
 	add_child(pmc)
-	pmc._signal_bus = SignalBus
+	pmc._signal_bus = get_node("/root/SignalBus")
 	pmc.grid_manager = grid_manager
 	pmc.main_node = self # We mock Main as self (Node) which has no methods, so fallbacks trigger
 	pmc.selected_unit = selected_unit
 	pmc.current_input_state = pmc.InputState.ABILITY_TARGETING
+
+class MockUnitGround extends Node:
+	var grid_pos = Vector2(5,5)
+	var faction = 'Player'
+	var mobility = 10
+	var current_ap = 10
+	var stats = {'accuracy': 100}
+	var modifiers = {}
+	func has_perk(p): return false
+	func spend_ap(cost): return true
 
 func test_ability(name, script, expected_chance):
 	print("Testing ", name, "...")
