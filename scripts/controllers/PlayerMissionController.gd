@@ -271,6 +271,12 @@ func _handle_move_click(grid_pos: Vector2):
 		return
 
 	# 2. Validate Path for Movement
+	if not grid_manager.is_valid_destination(grid_pos):
+		print("PMC: Invalid destination (Blocked or LADDER).")
+		if _signal_bus:
+			_signal_bus.on_combat_log_event.emit("Cannot Stop Here", Color.RED)
+		return
+
 	var path = grid_manager.get_move_path(selected_unit.grid_pos, grid_pos)
 	print("PMC: Path size: ", path.size())
 	if path.size() > 0:
