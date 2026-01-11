@@ -24,7 +24,7 @@ class MockGridVisualizer extends Node:
 
 class MockVisionManager extends Node:
 	func check_visibility(a, b): return true
-	func update_vision(): pass
+	func update_vision(units=[]): pass
 
 class MockPlayerUnit extends Node3D:
 	var grid_pos = Vector2(0,0)

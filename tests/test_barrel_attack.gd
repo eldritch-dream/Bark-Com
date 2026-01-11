@@ -137,9 +137,9 @@ func _run_tests():
 
 	print("Test 2: Preview Attack (Hover UI)...")
 	# Connect listener
-	var signal_emitted = false
+	root.set_meta("signal_emitted", false)
 	var lambda = func(c, d, p): 
-		signal_emitted = true
+		root.set_meta("signal_emitted", true)
 		print("Signal Received: Hit Chance Show")
 	
 	signal_bus.on_show_hit_chance.connect(lambda)
@@ -161,7 +161,7 @@ func get_hit_chance_breakdown(gm, user, target): return {'hit_chance': 100, 'bre
 	
 	pmc._preview_attack(Vector2(5, 5))
 	
-	if signal_emitted:
+	if root.get_meta("signal_emitted", false):
 		print("PASS: UI Signal Emitted for Barrel.")
 	else:
 		print("FAIL: No UI Signal for Barrel.")
