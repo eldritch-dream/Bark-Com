@@ -131,7 +131,7 @@ jobs:
           name: web-build
 
       - name: Deploy Windows
-        uses: manley/butler-publish-itchio-action@master
+        uses: manleydev/butler-publish-itchio-action@master
         env:
           BUTLER_CREDENTIALS: ${{ secrets.BUTLER_CREDENTIALS }}
           CHANNEL: windows
@@ -141,7 +141,7 @@ jobs:
           VERSION: ${{ github.ref_name }}
 
       - name: Deploy Web
-        uses: manley/butler-publish-itchio-action@master
+        uses: manleydev/butler-publish-itchio-action@master
         env:
           BUTLER_CREDENTIALS: ${{ secrets.BUTLER_CREDENTIALS }}
           CHANNEL: web
