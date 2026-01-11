@@ -78,6 +78,14 @@ jobs:
         
       - name: Setup Export Dir
         run: mkdir -p build/windows build/web
+
+      - name: Install Export Templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/4.5.1.stable
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          unzip -q Godot_v4.5.1-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/4.5.1.stable/
+          rm -rf templates Godot_v4.5.1-stable_export_templates.tpz
         
       - name: Export Windows
         run: |
