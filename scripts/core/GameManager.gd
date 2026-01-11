@@ -748,10 +748,12 @@ func _migrate_save(old_data: Dictionary) -> Dictionary:
 
 
 func delete_save():
-	var dir = DirAccess.open("user://")
-	if dir.file_exists("savegame.dat"):
-		dir.remove("savegame.dat")
-		print("GameManager: Save File DELETED.")
+	if FileAccess.file_exists(save_file_path):
+		var err = DirAccess.remove_absolute(save_file_path)
+		if err == OK:
+			print("GameManager: Save File DELETED (", save_file_path, ")")
+		else:
+			print("GameManager: Failed to delete save file. Error: ", err)
 
 
 func register_fallen_hero(unit_data: Dictionary, cause: String):

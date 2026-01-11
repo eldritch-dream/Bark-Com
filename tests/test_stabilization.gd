@@ -39,11 +39,18 @@ func test_mission_ended_signature():
 	# So we must set it manually.
 	main.mission_manager = real_mm
 	# Initialize config so it's not null
-	real_mm.active_mission_config = {}
+	var mc_script = load("res://scripts/resources/MissionConfig.gd")
+	if mc_script:
+		real_mm.active_mission_config = mc_script.new()
 	
 	main._on_mission_ended_handler(true, 100) 
 	print("PASS: Called with 2 arguments successfully.")
 	main.free()
+	# MissionManager was NOT added to tree, so manual free?
+	# Main doesn't own it in this test (we didn't add main to tree either).
+	# But Main doesn't manually free mission_manager usually (queue_free handles children).
+	# Here strictly we should free real_mm too if it wasn't added as child.
+	real_mm.free()
 
 func test_main_signal_safety():
 	var main = MainScript.new()

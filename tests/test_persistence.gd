@@ -43,10 +43,17 @@ func pass_test(msg):
 
 func _run_tests():
 	print("--- Starting Persistence Tests ---")
-	_test_save_load_cycle()
+	await _test_save_load_cycle()
 	_test_mission_completion_roster_integrity()
 	_test_iron_dog_logic()
 	print("--- Finished Persistence Tests ---")
+
+	if failures > 0:
+		print("❌ FAILED: " + str(failures) + " tests failed.")
+		get_tree().quit(1)
+	else:
+		print("✅ ALL TASKS PASSED.")
+		get_tree().quit(0)
 
 func _test_save_load_cycle():
 	print("\n[TEST] Save/Load Cycle...")
