@@ -19,6 +19,9 @@ var audio_manager  # Singleton ref
 enum GameState { MENU, BASE, MISSION, PAUSED }
 var current_state: GameState = GameState.MENU
 
+# Persistence
+var save_file_path: String = "user://savegame.dat"
+
 # Persistent Data
 var kibble: int = 100
 var roster: Array = []
@@ -633,7 +636,7 @@ func save_game():
 	# To JSON
 	var json_str = JSON.stringify(save_data)
 	var obfuscated = Marshalls.utf8_to_base64(json_str)
-	var file = FileAccess.open("user://savegame.dat", FileAccess.WRITE)
+	var file = FileAccess.open(save_file_path, FileAccess.WRITE)
 	if file:
 		file.store_string(obfuscated)
 		print("GameManager: Game Saved (v", SAVE_VERSION, ")")
@@ -642,11 +645,11 @@ func save_game():
 
 
 func load_game():
-	if not FileAccess.file_exists("user://savegame.dat"):
+	if not FileAccess.file_exists(save_file_path):
 		print("GameManager: No save file found.")
 		return
 
-	var file = FileAccess.open("user://savegame.dat", FileAccess.READ)
+	var file = FileAccess.open(save_file_path, FileAccess.READ)
 	if file:
 		var obfuscated = file.get_as_text()
 		var json_str = ""

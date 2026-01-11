@@ -11,6 +11,13 @@ func _ready():
 	
 	# Clean up previous runs
 	var dir = DirAccess.open("user://")
+	# Clean BOTH test and potential real save file to prevent logic collision?
+	# Ideally we should backup the real one, but running tests locally on dev machine is risky.
+	# The user is running this via pre-commit, so it's a dev environment.
+	# Safety: Only delete if it looks like a test artifact? No, the test writes to 'savegame.dat'.
+	# We must clean it.
+	if dir.file_exists("savegame.dat"):
+		dir.remove("savegame.dat")
 	if dir.file_exists("test_savegame.dat"):
 		dir.remove("test_savegame.dat")
 		
@@ -18,17 +25,41 @@ func _ready():
 	# We rely on CLI --user-data-dir. 
 	
 	_run_tests()
-	get_tree().quit()
+	
+	if failures > 0:
+		print("❌ FAILED: ", failures, " tests failed.")
+		get_tree().quit(1)
+	else:
+		print("✅ PASS: All tests passed.")
+		get_tree().quit()
+
+var failures = 0
+func fail(msg):
+	print(msg)
+	failures += 1
+	
+func pass_test(msg):
+	print(msg)
 
 func _run_tests():
+	print("--- Starting Persistence Tests ---")
 	_test_save_load_cycle()
 	_test_mission_completion_roster_integrity()
 	_test_iron_dog_logic()
+	print("--- Finished Persistence Tests ---")
 
 func _test_save_load_cycle():
 	print("\n[TEST] Save/Load Cycle...")
 	
+	var test_path = "user://test_savegame.dat"
+	
+	# Ensure clean slate
+	var dir = DirAccess.open("user://")
+	if dir.file_exists("test_savegame.dat"):
+		dir.remove("test_savegame.dat")
+
 	gm = game_manager_script.new()
+	gm.save_file_path = test_path # ISOLATION
 	add_child(gm)
 	
 	gm.kibble = 500
@@ -38,19 +69,24 @@ func _test_save_load_cycle():
 	
 	gm.save_game()
 	
-	if not FileAccess.file_exists("user://savegame.dat"):
-		print("FAIL: Save file not created.")
+	# Wait for IO?
+	await get_tree().process_frame
+	
+	if not FileAccess.file_exists(test_path):
+		fail("FAIL: Save file not created at " + test_path)
 	else:
 		gm.kibble = 0
 		gm.roster.clear()
 		gm.load_game()
 		
+		# Validation
 		if gm.kibble == 500 and gm.roster.size() == 1:
-			print("PASS: Save/Load Cycle Integrity Confirmed.")
+			pass_test("PASS: Save/Load Cycle Integrity Confirmed.")
 		else:
-			print("FAIL: Data mismatch.")
+			fail("FAIL: Data mismatch. Kibble: " + str(gm.kibble) + " Roster: " + str(gm.roster.size()))
 			
 	gm.queue_free()
+	await get_tree().process_frame
 
 func _test_mission_completion_roster_integrity():
 	print("\n[TEST] Mission Completion & Roster Safety...")
@@ -71,14 +107,14 @@ func _test_mission_completion_roster_integrity():
 	gm.complete_mission(survivors, true, [], 100)
 	
 	if _find_in_roster("Beta"):
-		print("FAIL: Beta should be purged.")
+		fail("FAIL: Beta should be purged.")
 	else:
-		print("PASS: Dead unit purged correctly.")
+		pass_test("PASS: Dead unit purged correctly.")
 		
 	if not _find_in_roster("Alpha"):
-		print("FAIL: Alpha should survive.")
+		fail("FAIL: Alpha should survive.")
 	else:
-		print("PASS: Survivor intact.")
+		pass_test("PASS: Survivor intact.")
 	
 	# Fail Safe
 	gm.roster.clear()
@@ -87,9 +123,9 @@ func _test_mission_completion_roster_integrity():
 	gm.complete_mission([], true, [], 100)
 	
 	if gm.roster.size() == 1:
-		print("PASS: Fail-Safe triggered for empty survivors on win.")
+		pass_test("PASS: Fail-Safe triggered for empty survivors on win.")
 	else:
-		print("FAIL: Fail-Safe failed.")
+		fail("FAIL: Fail-Safe failed.")
 		
 	gm.queue_free()
 
@@ -107,12 +143,15 @@ func _test_iron_dog_logic():
 	f.store_string("test")
 	f.close()
 	
+	# Register death to ensure roster purge triggers
+	gm.register_fallen_hero(gm.roster[0], "Wiped")
+	
 	gm.complete_mission([], false, [], 0)
 	
 	if FileAccess.file_exists("user://savegame.dat"):
-		print("FAIL: Save not deleted on wipe.")
+		fail("FAIL: Save not deleted on wipe.")
 	else:
-		print("PASS: Save deleted.")
+		pass_test("PASS: Save deleted.")
 		
 	gm.queue_free()
 

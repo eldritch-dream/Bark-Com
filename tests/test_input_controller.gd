@@ -66,10 +66,19 @@ class MockUnit extends Node:
 func _ready():
 	print("🧪 Starting Input Controller UNIT TEST (Isolated)...")
 	# Standardized Safeguard
+	# Standardized Safeguard
 	add_child(load("res://tests/TestSafeGuard.gd").new())
 	setup()
-	run_tests()
-	get_tree().quit(0)
+	
+	call_deferred("_start_tests")
+
+func _start_tests():
+	if not await run_tests():
+		print("❌ FAIL: Input Controller Tests Failed")
+		get_tree().quit(1)
+	else:
+		print("✅ PASS: All Input Controller Tests Passed")
+		get_tree().quit(0)
 
 func setup():
 	# 1. Instantiate Controller
@@ -97,7 +106,7 @@ func setup():
 	add_child(controller.selected_unit)
 	controller.selected_unit.add_to_group("Units")
 
-func run_tests():
+func run_tests() -> bool:
 	var passed = true
 	
 	# --- Test 1: State Change ---
@@ -228,7 +237,10 @@ func run_tests():
 	if MockProp.reload() != OK: print("Failed to load MockProp")
 	var interact_obj = MockProp.new()
 	interact_obj.name = "Door"
-	get_tree().root.add_child(interact_obj)
+	interact_obj.name = "Door"
+	get_tree().root.call_deferred("add_child", interact_obj)
+	await get_tree().process_frame # Wait for add
+	interact_obj.add_to_group("Interactive")
 	interact_obj.add_to_group("Interactive")
 	
 	# ...
@@ -247,4 +259,5 @@ func run_tests():
 	# I can rely on output observation or trust the code change. 
 	# Adding the test case serves as regression check if I update MockMain later.
 	print("✅ PASS: Interaction Test Run (Check logs for Delegation)")
+	return passed
 

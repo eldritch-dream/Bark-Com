@@ -1,13 +1,17 @@
-name: Godot CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ "main", "master", "dev" ]
+    tags: [ "v*" ]
   pull_request:
+
+permissions:
+  contents: write
 
 jobs:
   test:
-    name: Run Tests
+    name: 🧪 Run Tests
     runs-on: ubuntu-latest
     container:
       image: barichello/godot-ci:4.5.1
@@ -27,25 +31,20 @@ jobs:
         timeout-minutes: 15
         run: |
           echo "🔍 Discovering Tests..."
-          
-          # Initialize Fail Flag
           FAIL=0
           
           # 1. Run all Test Scenes (*.tscn)
-          # Using find with a loop to handle files (Standard POSIX read)
           find tests -name "*.tscn" | while read -r scene; do
             echo "🎬 Running Scene: $scene"
             godot --headless --path . "$scene"
             if [ $? -ne 0 ]; then
                 echo "❌ FAILURE in $scene"
                 touch .test_failed
-                exit 1 # Exits subshell loop
+                FAIL=1
             fi
           done
           
-          if [ -f .test_failed ]; then exit 1; fi
-
-          # 2. Run Standalone Scripts (*.gd extending SceneTree/MainLoop)
+          # 2. Run Standalone Scripts
           find tests -name "*.gd" | while read -r script; do
             if grep -q -E "extends\s+(SceneTree|MainLoop)" "$script"; then
               echo "📜 Running Script: $script"
@@ -53,15 +52,117 @@ jobs:
               if [ $? -ne 0 ]; then
                   echo "❌ FAILURE in $script"
                   touch .test_failed
-                  exit 1
+                  FAIL=1
               fi
             fi
           done
           
           if [ -f .test_failed ]; then
             echo "🔥 SOME TESTS FAILED"
-            rm .test_failed
             exit 1
           else
              echo "✅ ALL TESTS PASSED"
           fi
+
+  build:
+    name: 📦 Build
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.5.1
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Export Dir
+        run: mkdir -p build/windows build/web
+        
+      - name: Export Windows
+        run: |
+          godot --headless --export-release "Windows Desktop" build/windows/Bark.exe
+          
+      - name: Export Web
+        run: |
+          godot --headless --export-release "Web" build/web/index.html
+
+      - name: Zip Builds
+        run: |
+          apt-get update && apt-get install -y zip
+          cd build/windows && zip -r ../../windows_build.zip . && cd ../..
+          cd build/web && zip -r ../../web_build.zip . && cd ../..
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: windows_build.zip
+          
+      - name: Upload Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: web_build.zip
+
+  deploy_itch:
+    name: 🚀 Deploy to itch.io
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    
+    steps:
+      - name: Download Windows Build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          
+      - name: Download Web Build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+
+      - name: Deploy Windows
+        uses: manley/butler-publish-itchio-action@master
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_CREDENTIALS }}
+          CHANNEL: windows
+          ITCH_GAME: bark-com
+          ITCH_USER: smilidog
+          PACKAGE: windows_build.zip
+          VERSION: ${{ github.ref_name }}
+
+      - name: Deploy Web
+        uses: manley/butler-publish-itchio-action@master
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_CREDENTIALS }}
+          CHANNEL: web
+          ITCH_GAME: bark-com
+          ITCH_USER: smilidog
+          PACKAGE: web_build.zip
+          VERSION: ${{ github.ref_name }}
+
+  release_github:
+    name: 🏷️ Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download Windows Build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          
+      - name: Download Web Build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            windows_build.zip
+            web_build.zip
+          fail_on_unmatched_files: true

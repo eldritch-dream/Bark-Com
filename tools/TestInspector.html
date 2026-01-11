@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bark-Com Test Inspector</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --sidebar-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent-color: #3b82f6;
+            --success-color: #22c55e;
+            --error-color: #ef4444;
+            --border-color: #334155;
+            --hover-color: #334155;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            font-size: 2rem;
+            color: var(--accent-color);
+            border: 4px dashed var(--accent-color);
+            box-sizing: border-box;
+        }
+
+        #drop-zone.hidden {
+            display: none;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 300px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .test-list {
+            flex: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .test-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .test-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .test-item.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .test-item.failed {
+            border-left: 4px solid var(--error-color);
+        }
+
+        .test-item.passed {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            padding: 0.5rem 1rem;
+            background-color: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .log-view {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Highlighting */
+        .highlight-error {
+            color: #fca5a5;
+            font-weight: bold;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .highlight-fail {
+            color: #fca5a5;
+            font-weight: bold;
+        }
+
+        .highlight-pass {
+            color: #86efac;
+        }
+
+        .highlight-info {
+            color: #93c5fd;
+        }
+
+        .badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .badge-fail {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .badge-pass {
+            background: var(--success-color);
+            color: black;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="drop-zone">Drag 'test_log.txt' here</div>
+
+    <div class="sidebar">
+        <div class="header">
+            Tests
+            <span id="stats-badge" class="badge">0/0</span>
+        </div>
+        <ul id="test-list" class="test-list">
+            <!-- Tests go here -->
+        </ul>
+        <div style="padding:1rem; border-top:1px solid var(--border-color)">
+            <input type="file" id="file-input" style="display:none">
+            <button class="btn" style="width:100%" onclick="document.getElementById('file-input').click()">Load Log
+                File</button>
+        </div>
+        <div style="padding:1rem; border-top:1px solid var(--border-color); font-size:0.8rem; color:#64748b">
+            <strong>Debug Info:</strong>
+            <div id="debug-log"
+                style="font-family:monospace; margin-top:0.5rem; white-space:pre-wrap; max-height:150px; overflow-y:auto; border:1px solid #334155; padding:4px;">
+                Waiting for file...</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header" id="detail-header">Select a test...</div>
+        <div class="toolbar">
+            <label><input type="checkbox" id="chk-show-errors" onchange="Parser.renderCurrent()" checked> Highlight
+                Errors</label>
+            <label><input type="checkbox" id="chk-wrap" onchange="Parser.toggleWrap()"> Word Wrap</label>
+        </div>
+        <div id="log-display" class="log-view">
+            Drag your <code>test_log.txt</code> here to create a summary.
+        </div>
+    </div>
+
+    <script>
+        // Error Barrier
+        window.onerror = function (msg, url, line) {
+            const el = document.getElementById('debug-log');
+            if (el) el.innerText += `JS ERROR: ${msg} (${line})\n`;
+            return false;
+        };
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const testListEl = document.getElementById('test-list');
+        const logDisplayEl = document.getElementById('log-display');
+        const headerEl = document.getElementById('detail-header');
+        const statsBadge = document.getElementById('stats-badge');
+
+        function debugLog(msg) {
+            const el = document.getElementById('debug-log');
+            if (el) el.innerText += msg + "\n";
+            console.log(msg);
+        }
+
+        // Drag & Drop
+        window.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            dropZone.classList.remove('hidden');
+        });
+        window.addEventListener('dragleave', e => {
+            if (e.target === dropZone) dropZone.classList.add('hidden');
+        });
+        window.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.add('hidden');
+            debugLog("Drop detected.");
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                debugLog(`Files dropped: ${e.dataTransfer.files.length}. Name: ${e.dataTransfer.files[0].name}`);
+                handleFile(e.dataTransfer.files[0]);
+            } else {
+                debugLog("ERROR: No files in dataTransfer.");
+            }
+        });
+
+        fileInput.addEventListener('change', e => {
+            debugLog("File input changed.");
+            handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            if (!file) {
+                debugLog("handleFile called with undefined file.");
+                return;
+            }
+            debugLog(`Starting read of: ${file.name} (${file.size} bytes)`);
+
+            const reader = new FileReader();
+            reader.onerror = (e) => debugLog(`FileReader Error: ${reader.error}`);
+            reader.onload = e => {
+                debugLog("File read complete. Parsing...");
+                try {
+                    Parser.parse(e.target.result, file.size);
+                } catch (ex) {
+                    debugLog(`Parse Exception: ${ex.message}`);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        const Parser = {
+            tests: [],
+            currentTestIndex: -1,
+
+            parse(text, size) {
+                // Peek at first few chars to check encoding artifacts
+                const header = text.substring(0, 50).replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+                // debugLog(`Header raw: "${header}"`);
+
+                // Check for null bytes (UTF-16 LE)
+                if (text.indexOf('\0') !== -1) {
+                    debugLog("Detected NULL bytes. Sanitizing UTF-16 artifacts...");
+                    text = text.replace(/\0/g, '');
+                }
+
+                this.tests = [];
+                const lines = text.split(/\r?\n/);
+                debugLog(`Split into ${lines.length} lines.`);
+
+                let currentTest = null;
+                let globalLog = [];
+                let matchCount = 0;
+
+                const testStartRegex = /Running: (.+)/;
+
+                for (let line of lines) {
+                    const matchStart = line.match(testStartRegex);
+
+                    if (matchStart) {
+                        matchCount++;
+                        if (currentTest) {
+                            this.finalizeTest(currentTest);
+                            this.tests.push(currentTest);
+                        }
+
+                        currentTest = {
+                            name: matchStart[1].trim(),
+                            logs: [],
+                            status: 'UNKNOWN',
+                            errors: 0
+                        };
+                    }
+
+                    if (currentTest) {
+                        currentTest.logs.push(line);
+                        if (line.includes("FAILURE in") || line.includes("FAILED:")) currentTest.status = 'FAIL';
+                        if (line.includes("SCRIPT ERROR") || line.includes("ERROR:")) currentTest.errors++;
+                    } else {
+                        globalLog.push(line);
+                    }
+                }
+
+                debugLog(`Found ${matchCount} test start markers.`);
+
+                if (currentTest) {
+                    this.finalizeTest(currentTest);
+                    this.tests.push(currentTest);
+                }
+
+                debugLog(`Parsed ${this.tests.length} tests total.`);
+
+                // Render List
+                this.renderList();
+
+                if (this.tests.length > 0) this.selectTest(0);
+                else debugLog("WARNING: No tests found! Check regex/content.");
+            },
+
+            finalizeTest(test) {
+                // If not explicitly failed, check specific pass markers
+                if (test.status === 'UNKNOWN') {
+                    const logText = test.logs.join('\n');
+                    if (logText.includes("FAILURE")) test.status = 'FAIL';
+                    else if (logText.includes("SCRIPT ERROR")) test.status = 'FAIL';
+                    else test.status = 'PASS'; // Optimistic default if no failure found
+                }
+            },
+
+            renderList() {
+                testListEl.innerHTML = '';
+                let failures = 0;
+
+                this.tests.forEach((test, index) => {
+                    if (test.status === 'FAIL') failures++;
+
+                    const li = document.createElement('li');
+                    li.className = `test-item ${test.status === 'FAIL' ? 'failed' : 'passed'}`;
+                    li.innerHTML = `
+                <span>${test.name}</span>
+                ${test.status === 'FAIL' ? '<span class="badge badge-fail">FAIL</span>' : ''}
+            `;
+                    li.onclick = () => this.selectTest(index);
+                    testListEl.appendChild(li);
+                });
+
+                statsBadge.innerText = `${failures} Failed / ${this.tests.length} Total`;
+                statsBadge.className = failures > 0 ? "badge badge-fail" : "badge badge-pass";
+            },
+
+            selectTest(index) {
+                this.currentTestIndex = index;
+                const test = this.tests[index];
+
+                // Highlight active
+                Array.from(testListEl.children).forEach((el, i) => {
+                    el.classList.toggle('active', i === index);
+                });
+
+                headerEl.innerText = test.name;
+                this.renderCurrent();
+            },
+
+            renderCurrent() {
+                if (this.currentTestIndex === -1) return;
+                const test = this.tests[this.currentTestIndex];
+                const showErrors = document.getElementById('chk-show-errors').checked;
+
+                let html = '';
+
+                test.logs.forEach(line => {
+                    let cls = '';
+                    if (showErrors && (line.includes("ERROR") || line.includes("FAIL"))) cls = 'highlight-error';
+                    else if (line.includes("PASS")) cls = 'highlight-pass';
+                    else if (line.includes("DEBUG")) cls = 'highlight-info';
+
+                    html += `<div class="${cls}">${this.escapeHtml(line)}</div>`;
+                });
+
+                logDisplayEl.innerHTML = html;
+            },
+
+            escapeHtml(str) {
+                return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            },
+
+            toggleWrap() {
+                if (document.getElementById('chk-wrap').checked) {
+                    logDisplayEl.style.whiteSpace = 'pre-wrap';
+                } else {
+                    logDisplayEl.style.whiteSpace = 'pre';
+                }
+            }
+        };
+    </script>
+
+</body>
+
+</html>

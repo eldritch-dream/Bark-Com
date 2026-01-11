@@ -29,6 +29,18 @@ func test_mission_ended_signature():
 	
 	# Mock dependencies effectively null
 	# Note: Main.gd uses SignalBus (Autoload). Since Node runner has Autoloads, it should be safer.
+	# Use REAL MissionManager class for type safety
+	var mm_script = load("res://scripts/managers/MissionManager.gd")
+	var real_mm = mm_script.new()
+	real_mm.name = "MissionManager"
+	# We need to assign it to main.mission_manager. 
+	# Does Main have valid reference? Main._ready() not called.
+	# Main initializes mission_manager in _ready.
+	# So we must set it manually.
+	main.mission_manager = real_mm
+	# Initialize config so it's not null
+	real_mm.active_mission_config = {}
+	
 	main._on_mission_ended_handler(true, 100) 
 	print("PASS: Called with 2 arguments successfully.")
 	main.free()

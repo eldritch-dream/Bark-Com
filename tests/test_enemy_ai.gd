@@ -15,6 +15,17 @@ class MockTurnManager extends Node:
 	func check_auto_end_turn(): pass
 	func handle_reaction_fire(unit, from_pos): pass
 
+class MockGridVisualizer extends Node:
+	func clear_debug_scores(): pass
+	func debug_score_tiles(u, tiles): pass
+	func show_debug_score(pos, score): pass
+	func draw_ai_intent(start, end, color): pass
+	func visualize_path(path): pass
+
+class MockVisionManager extends Node:
+	func check_visibility(a, b): return true
+	func update_vision(): pass
+
 class MockPlayerUnit extends Node3D:
 	var grid_pos = Vector2(0,0)
 	var faction = "Player"
@@ -59,7 +70,18 @@ func setup_env():
 	# 2. TurnManager (Group)
 	mock_tm = MockTurnManager.new()
 	mock_tm.add_to_group("TurnManager")
+	mock_tm.add_to_group("TurnManager")
 	add_child(mock_tm)
+	
+	# 3. Visualizer (Mock)
+	var gv = MockGridVisualizer.new()
+	gv.name = "GridVisualizer"
+	add_child(gv)
+	
+	# 4. VisionManager (Mock)
+	var vm = MockVisionManager.new()
+	vm.name = "VisionManager"
+	add_child(vm)
 	
 	# Setup AStar (Critical!)
 	grid_manager._setup_astar()
@@ -69,8 +91,21 @@ func run_tests():
 	await test_attack_in_range()
 	# await test_cover_preference() # Complex to setup cover data in mock grid, maybe later
 	
-	print("--- ALL AI TESTS PASSED ---")
-	get_tree().quit()
+	
+	if failures > 0:
+		print("❌ FAILED: ", failures, " tests failed.")
+		get_tree().quit(1)
+	else:
+		print("✅ ALL AI TESTS PASSED")
+		get_tree().quit()
+
+var failures = 0
+func fail(msg):
+	print(msg)
+	failures += 1
+	
+func pass_test(msg):
+	print(msg)
 
 func test_movement_towards_enemy():
 	print("\nTest: Movement Towards Enemy...")
@@ -101,8 +136,8 @@ func test_movement_towards_enemy():
 	
 	# Verify Start
 	if enemy.grid_pos != Vector2(0,0):
-		print("FAIL: Enemy not at start.")
-		get_tree().quit(1)
+		fail("FAIL: Enemy not at start.")
+		return
 	
 	# We expect AI to move CLOSER to (8,0). 
 	# Max move 4. Should end at (4,0).
@@ -114,10 +149,9 @@ func test_movement_towards_enemy():
 	print("Enemy End Pos: ", enemy.grid_pos)
 	
 	if enemy.grid_pos.x > 0:
-		print("PASS: Enemy moved towards target.")
+		pass_test("PASS: Enemy moved towards target.")
 	else:
-		print("FAIL: Enemy did not move. Pos: ", enemy.grid_pos)
-		get_tree().quit(1)
+		fail("FAIL: Enemy did not move. Pos: " + str(enemy.grid_pos))
 		
 	enemy.queue_free()
 	target.queue_free()
@@ -129,6 +163,7 @@ func test_attack_in_range():
 	enemy.name = "AI_Shooter"
 	add_child(enemy)
 	enemy.initialize(Vector2(5,5))
+	enemy.accuracy = 200 # Force 100% hit chance for test stability
 	enemy.attack_range = 4
 	enemy.current_ap = 10 # Ensure AP for move + shoot
 	mock_tm.units.append(enemy)
@@ -147,10 +182,9 @@ func test_attack_in_range():
 	await enemy.decide_action([target, enemy], grid_manager)
 	
 	if target.current_hp < start_hp:
-		print("PASS: Enemy attacked target (HP Dropped: ", start_hp, " -> ", target.current_hp, ")")
+		pass_test("PASS: Enemy attacked target (HP Dropped: " + str(start_hp) + " -> " + str(target.current_hp) + ")")
 	else:
-		print("FAIL: Enemy did not damage target.")
-		get_tree().quit(1)
+		fail("FAIL: Enemy did not damage target.")
 
 	enemy.queue_free()
 	target.queue_free()
