@@ -16,8 +16,12 @@ The base class for all enemies.
 The abstract strategy pattern that defines *how* an enemy thinks.
 -   **Location**: `scripts/ai/AIBehaviorBase.gd`
 -   **Key Methods**:
-    -   `decide_action(unit, grid_manager, known_targets)`: Returns the next action to take.
-    -   `score_position(unit, pos)`: Evaluates a tactical position.
+    -   `evaluate_position(unit, tile, target, grid_manager) -> float`: Scores a candidate tile.
+    -   `evaluate_target(unit, target, grid_manager) -> float`: Scores a potential target.
+    -   `get_special_action(unit, grid_manager) -> Dictionary`: Returns a special-ability action dict if the behavior wants to use one (e.g. grenade, mind fracture), or empty dict.
+    -   `_get_self_preservation_score(unit, tile, target, gm) -> float`: Internal; penalizes exposed positions.
+
+Note: `decide_action(all_units, grid_manager)` is a method on **`EnemyUnit`** (not on `AIBehaviorBase`). It orchestrates movement and attack selection by querying the behavior's scoring functions.
 
 ### Modular Behaviors (`scripts/ai/`)
 Each enemy type instantiates a specific behavior script:
@@ -28,7 +32,7 @@ Each enemy type instantiates a specific behavior script:
 
 ## 3. The AI Decision Loop
 
-When `EnemyController` prompts an enemy to act:
+When `TurnManager.start_enemy_turn()` prompts an enemy to act (calls `unit.decide_action(all_units, grid_manager)`):
 
 1.  **Context Building**: The Unit gathers `known_targets` (Player units in vision/memory).
 2.  **Behavior Query**: `EnemyUnit` asks its `behavior` to `decide_action()`.

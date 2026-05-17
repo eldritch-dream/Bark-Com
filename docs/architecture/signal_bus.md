@@ -15,7 +15,7 @@ These drive the core loop and often trigger UI refreshes or AI reactions.
 
 ### Visual & Feedback
 Use these to request "Juice" without coupling logic to the Visuals system.
--   `on_request_floating_text(pos, text, color)`: Spawns damage numbers or status text.
+-   `on_request_floating_text(target, text, color)`: Spawns damage numbers or status text. `target` is the world position or Node to attach the text to.
 -   `on_request_vfx(vfx_name, pos, ...)`: Spawns particles (Blood, Explosions).
 -   `on_request_camera_focus(pos)`: Tells the camera where to look.
 

@@ -50,8 +50,8 @@ var mobility: int:
 
 When placing objects on the Grid:
 
-1.  **Validation**: ALWAYS check `GridManager.grid_data.has(pos)` or `GridManager.is_tile_walkable(pos)`.
-    - *Note*: `GridManager` does **NOT** have an `is_valid_tile()` method. Use `grid_data.has()`.
+1.  **Validation**: ALWAYS check `GridManager.grid_data.has(pos)` or `GridManager.is_walkable(pos)`.
+    - *Note*: `GridManager` does **NOT** have an `is_tile_walkable()` method. Use `is_walkable()` or `is_valid_destination()`.
 2.  **Clearance**: Use `ObjectiveSpawner._ensure_tile_clear(pos)` to remove existing walls/props if necessary.
 3.  **Parenting**: Add objectives to `GridManager` or a dedicated container, not the root, to ensure they clean up with the mission.
 

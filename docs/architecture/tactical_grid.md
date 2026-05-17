@@ -6,13 +6,19 @@ The Tactical Grid is the foundation of gameplay. It manages movement, cover, lin
 ## 2. Core Components
 
 ### `GridManager.gd`
-The central singleton/manager.
+Per-mission manager (not a global autoload — created by `MissionManager`).
 -   **Grid Coordinates**: `Vector2(x, z)`.
 -   **World Coordinates**: `Vector3(x, y, z)`.
 -   **Key Responsibilities**:
-    -   `get_path(start, end)`: AStar pathfinding.
-    -   `get_cover_value(unit, target)`: Calculates cover (Low/High/None) based on adjacent objects.
-    -   `is_tile_occupied(pos)`: Collision checking.
+    -   `get_move_path(start: Vector2, end: Vector2) -> Array[Vector2]`: AStar pathfinding.
+    -   `get_best_cover_at(coord: Vector2) -> float`: Returns cover rating at a tile (used for AI scoring).
+    -   `is_tile_blocked(coord: Vector2) -> bool`: True if occupied by wall/prop.
+    -   `get_unit_at_grid_pos(coord: Vector2) -> Node`: Returns occupying unit or null.
+    -   `is_walkable(coord: Vector2) -> bool`: True if passable (not blocked, not out of bounds).
+    -   `is_valid_destination(coord: Vector2) -> bool`: Combines walkability + occupancy check.
+    -   `get_reachable_tiles(start_pos, max_move) -> Array[Vector2]`: BFS for movement range.
+
+Cover math (hit chance penalties) lives in `CombatResolver.calculate_hit_chance()`, which queries GridManager internally.
 
 ### `TacticalMap` (Scene)
 The visual representation.
