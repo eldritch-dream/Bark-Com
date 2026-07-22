@@ -53,17 +53,17 @@ Run a focused subset by filename pattern:
 pwsh ./tests/run_tests_parallel.ps1 -Filters "verify_final_mission"
 ```
 
-Tests touching `GameManager` must enable mock mode and use the protected test-save path. Read [Testing Protocols](docs/architecture/testing_protocols.md) before adding or running persistence tests.
+All integration tests, and unit tests touching `GameManager`, must enable mock mode and use the protected test-save path. Read [Testing Protocols](docs/architecture/testing_protocols.md) before adding or running persistence tests.
 
 ## Building
 
 The repository contains Web and Windows export presets. With Godot 4.5.1 export templates installed:
 
 ```powershell
-pwsh ./build_game.ps1 -Version "0.6.11"
+pwsh ./build_game.ps1 -Version "<version>"
 ```
 
-Artifacts are written beneath `builds/`. The current local build script contains a developer-specific fallback path for Godot; if `godot` is not available there, update `$GodotPath` in `build_game.ps1` for your installation. See the [Build and Deploy workflow](.agent/workflows/build_and_deploy.md) and [Versioning guide](docs/dev_guide/versioning.md) for release details.
+Artifacts are written beneath `builds/`. The current local build script hardcodes a developer-specific Godot path; update `$GodotPath` in `build_game.ps1` for your installation. See the [Build and Deploy workflow](.agent/workflows/build_and_deploy.md) and [Versioning guide](docs/dev_guide/versioning.md) for release details.
 
 ## Contributing
 
