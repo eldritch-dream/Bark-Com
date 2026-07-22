@@ -20,7 +20,7 @@ func _ready():
 
 	# Force Test Mode
 	GameManager.TEST_MOCK_ENABLED = true
-	GameManager.save_file_path = "user://test_bond_save.dat"
+	GameManager.save_file_path = "user://test_savegame.dat"
 	
 	# Start Fresh
 	GameManager.new_game()
@@ -29,19 +29,23 @@ func _ready():
 	# Unit A: Dead Dog
 	# Unit B: Survivor (On Mission)
 	# Unit C: Survivor (At Base)
+	# Unit D: Survivor (On Mission)
 	
 	var unit_a = "UnitDead"
 	var unit_b = "UnitLiveMission"
 	var unit_c = "UnitLiveBase"
+	var unit_d = "UnitLiveMissionPartner"
 	
 	GameManager._add_recruit(unit_a, 1, "Recruit")
 	GameManager._add_recruit(unit_b, 1, "Recruit")
 	GameManager._add_recruit(unit_c, 1, "Recruit")
+	GameManager._add_recruit(unit_d, 1, "Recruit")
 	
 	# 3. Create Bonds
 	# A <-> B (Should Clear)
 	# A <-> C (Should Clear)
 	# B <-> C (Should PERIST)
+	# B <-> D starts at zero and should grow exactly once after they survive together.
 	
 	GameManager.modify_bond(unit_a, unit_b, 10)
 	GameManager.modify_bond(unit_a, unit_c, 10)
@@ -61,15 +65,15 @@ func _ready():
 	# 4. Simulate Mission & Death
 	print(LOG_PREFIX, "Simulating Mission where Unit A dies...")
 	
-	# Setup Squad (A and B went on mission)
+	# Setup Squad (A, B, and D went on mission)
 	var squad = []
 	for u in GameManager.roster:
-		if u.name == unit_a or u.name == unit_b:
+		if u.name == unit_a or u.name == unit_b or u.name == unit_d:
 			squad.append(u)
 	
 	GameManager.deploying_squad = squad
 	
-	# Surviving Squad Data (Only B returns)
+	# Surviving Squad Data (B and D return)
 	var survivors = []
 	var b_data = {
 		"name": unit_b,
@@ -78,6 +82,13 @@ func _ready():
 		"inventory": []
 	}
 	survivors.append(b_data)
+	var d_data = {
+		"name": unit_d,
+		"hp": 10,
+		"xp": 0,
+		"inventory": []
+	}
+	survivors.append(d_data)
 	
 	# Register Death explicitly usually happens via 'fallen_heroes' logic check or just missing from survivors.
 	# GameManager.complete_mission checks against 'deploying_squad'.
@@ -104,10 +115,12 @@ func _ready():
 	var bond_ab = GameManager.get_bond_score(unit_a, unit_b)
 	var bond_ac = GameManager.get_bond_score(unit_a, unit_c)
 	var bond_bc = GameManager.get_bond_score(unit_b, unit_c)
+	var bond_bd = GameManager.get_bond_score(unit_b, unit_d)
 	
 	print(" - A-B (Should be 0): ", bond_ab)
 	print(" - A-C (Should be 0): ", bond_ac)
 	print(" - B-C (Should be 10): ", bond_bc)
+	print(" - B-D (Should be 1): ", bond_bd)
 	
 	var fail = false
 	
@@ -121,6 +134,10 @@ func _ready():
 		
 	if bond_bc != 10:
 		print(LOG_PREFIX, "FAIL: Bond B-C was incorrectly removed/modified! Val: ", bond_bc)
+		fail = true
+
+	if bond_bd != 1:
+		print(LOG_PREFIX, "FAIL: Mission survivor bond should grow exactly once! Expected: 1, Actual: ", bond_bd)
 		fail = true
 		
 	if fail:
