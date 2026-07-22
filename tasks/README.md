@@ -17,7 +17,7 @@ Active tasks are in **priority order** — the first item is the highest priorit
 
 ### Active
 
-- [001 — Action cam ignores camera rotation (q/e)](active/001-action-cam-camera-rotation.md) *(Bug)*
+- [154 — Stabilize loot/ladder crash test under parallel execution](active/154-stabilize-loot-ladder-parallel-test.md) *(Tooling)*
 - [012 — Some fonts ignore the font-size slider](active/012-fonts-font-slider.md) *(Bug)*
 - [014 — Map chunk has multiple orphaned ladders](active/014-orphaned-ladders-map-chunk.md) *(Bug)*
 - [017 — Enemy turn starts before ally finishes moving or grenade animates](active/017-enemy-turn-starts-too-early.md) *(Bug)*
