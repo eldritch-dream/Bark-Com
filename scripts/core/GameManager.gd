@@ -575,8 +575,6 @@ func complete_mission(
 	# +1 for every pair in the surviving squad
 	_process_mission_bonds(surviving_corgis_data)
 
-	_process_mission_bonds(surviving_corgis_data)
-
 	missions_completed += 1
 	
 	# Force Refresh of Missions (New Day/Cycle)
