@@ -25,7 +25,14 @@ func _verify_rotation_is_restored() -> void:
 	cinematic._on_action_started(attacker, null, "Grenade", Vector3(4.0, 0.0, 4.0))
 	cinematic._kill_tween()
 
+	# A death camera may interrupt the action shot. It must retain the original
+	# player-selected return state rather than capturing the in-flight camera.
 	camera.rotation_degrees.y = 0.0
+	var victim := Node3D.new()
+	add_child(victim)
+	cinematic._on_unit_died(victim)
+	cinematic._kill_tween()
+
 	cinematic._reset_camera()
 	await get_tree().create_timer(1.0).timeout
 
@@ -34,14 +41,14 @@ func _verify_rotation_is_restored() -> void:
 			1,
 			"Cinematic camera restored yaw %.2f instead of the player's %.2f-degree rotation."
 			% [camera.rotation_degrees.y, ROTATED_YAW_DEGREES],
-			[attacker, cinematic, camera]
+			[attacker, victim, cinematic, camera]
 		)
 		return
 
 	await _finish(
 		0,
 		"PASS: Cinematic camera preserved the player's rotated yaw.",
-		[attacker, cinematic, camera]
+		[attacker, victim, cinematic, camera]
 	)
 
 

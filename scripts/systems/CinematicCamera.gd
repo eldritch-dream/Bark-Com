@@ -81,6 +81,9 @@ func _on_action_started(attacker, target, action_type: String, target_pos: Vecto
 	if action_type == "Attack":
 		return
 
+	is_active = true
+	SignalBus.on_cinematic_mode_changed.emit(true)
+
 	# 2. Smooth "Action Zoom"
 	var start_pos = attacker.position
 	var end_pos = target_pos  # Use precise target point provided by signal
