@@ -5,8 +5,8 @@ class_name CinematicCamera
 
 var camera: Camera3D
 var default_position: Vector3
-var default_rotation: Vector3
 var return_pos: Vector3  # Dynamic return position
+var return_rotation: Vector3  # Dynamic return orientation
 var return_size: float = 18.0  # Dynamic return zoom
 var current_attacker: Node  # Track who started the action
 var is_active: bool = false
@@ -16,8 +16,8 @@ var tween: Tween
 func _init(cam: Camera3D):
 	camera = cam
 	default_position = cam.position
-	default_rotation = cam.rotation_degrees
 	return_pos = cam.position  # Initialize fallback
+	return_rotation = cam.rotation_degrees
 
 
 func _ready():
@@ -32,8 +32,7 @@ func _on_request_camera_zoom(target_pos: Vector3, zoom_level: float, duration: f
 	
 	# Only save state if we aren't already in a cinematic
 	if not is_active:
-		return_pos = camera.position
-		return_size = camera.size
+		_capture_return_state()
 	
 	is_active = true
 	_kill_tween()
@@ -69,8 +68,7 @@ func _on_action_started(attacker, target, action_type: String, target_pos: Vecto
 		return
 
 	# Capture state before zoom
-	return_pos = camera.position
-	return_size = camera.size
+	_capture_return_state()
 	current_attacker = attacker
 
 	# User Feedback: Remove Heal Zoom
@@ -123,6 +121,8 @@ func _on_action_started(attacker, target, action_type: String, target_pos: Vecto
 
 func _on_unit_died(unit):
 	# Impact Zoom
+	if not is_active:
+		_capture_return_state()
 	is_active = true
 	_kill_tween()
 	SignalBus.on_cinematic_mode_changed.emit(true)
@@ -156,14 +156,20 @@ func _reset_camera():
 	tween.set_trans(Tween.TRANS_CUBIC)
 	tween.tween_property(camera, "position", return_pos, 0.8)  # Reset to saved/updated position
 	tween.tween_property(camera, "size", return_size, 0.8)  # Reset to MEMORIZED size (don't force 18.0)
-	# No rotation change needed if we didn't touch it
-	tween.tween_property(camera, "rotation_degrees", default_rotation, 0.8)
+	# Restore the orientation the player selected before the cinematic.
+	tween.tween_property(camera, "rotation_degrees", return_rotation, 0.8)
 	tween.chain().tween_callback(
 		func():
 			is_active = false
 			get_tree().paused = false
 			SignalBus.on_cinematic_mode_changed.emit(false)
 	)
+
+
+func _capture_return_state() -> void:
+	return_pos = camera.position
+	return_rotation = camera.rotation_degrees
+	return_size = camera.size
 
 
 func _kill_tween():
